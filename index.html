@@ -24,6 +24,7 @@
     --green: #5fc387;
     --red: #e87066;
     --blue: #5aa4e8;
+    --purple: #b88ee8;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
@@ -65,7 +66,6 @@
   .toggle-btn:hover { color: var(--text); }
   .toggle-btn.active { background: var(--accent); color: var(--bg); font-weight: 600; }
 
-  /* ============ PRICES STATUS ============ */
   .prices-bar {
     background: var(--bg-panel); border: 1px solid var(--border);
     border-radius: 10px; padding: 12px 16px; margin-bottom: 16px;
@@ -75,10 +75,7 @@
     display: flex; align-items: center; gap: 8px;
     font-size: 12px; font-family: 'JetBrains Mono', monospace;
   }
-  .status-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--text-faint);
-  }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); }
   .status-dot.live { background: var(--green); animation: pulse 2s infinite; }
   .status-dot.error { background: var(--red); }
   .status-dot.loading { background: var(--accent); animation: pulse 1s infinite; }
@@ -86,7 +83,7 @@
   .prices-info strong { color: var(--text); font-weight: 600; }
   .prices-actions { display: flex; gap: 8px; margin-left: auto; }
 
-  /* ============ PORTFOLIOS SELECTOR ============ */
+  /* Carteras tabs */
   .portfolio-tabs {
     background: var(--bg-panel); border: 1px solid var(--border);
     border-radius: 10px; padding: 12px 16px; margin-bottom: 16px;
@@ -102,8 +99,7 @@
     color: var(--text-dim);
     padding: 6px 14px; border-radius: 6px; cursor: pointer;
     font-family: 'Manrope', sans-serif;
-    font-size: 12px; font-weight: 500;
-    transition: all 0.15s;
+    font-size: 12px; font-weight: 500; transition: all 0.15s;
     display: flex; align-items: center; gap: 8px;
   }
   .pf-tab:hover { border-color: var(--accent-dim); color: var(--text); }
@@ -119,9 +115,59 @@
     opacity: 0.6;
   }
   .pf-tab-close:hover { opacity: 1; background: rgba(0,0,0,0.3); }
-  .pf-tab.active .pf-tab-close { color: var(--bg); }
   .pf-tabs-scroll { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
 
+  /* ========== PANEL COSTOS ========== */
+  .costs-panel {
+    background: var(--bg-panel); border: 1px solid var(--border);
+    border-radius: 10px; margin-bottom: 16px; overflow: hidden;
+  }
+  .costs-panel summary {
+    padding: 16px 20px; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 16px; list-style: none; user-select: none;
+    transition: background 0.15s;
+  }
+  .costs-panel summary:hover { background: var(--bg-hover); }
+  .costs-panel summary::-webkit-details-marker { display: none; }
+  .costs-panel summary::after {
+    content: '▾'; font-size: 14px; color: var(--text-dim);
+    transition: transform 0.2s;
+  }
+  .costs-panel[open] summary::after { transform: rotate(180deg); }
+  .costs-body {
+    padding: 0 20px 20px; border-top: 1px solid var(--border);
+  }
+  .costs-intro {
+    font-size: 12px; color: var(--text-dim); padding: 14px 0 18px; line-height: 1.6;
+  }
+  .costs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .cost-item {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px;
+  }
+  .cost-item-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 6px; display: block;
+  }
+  .cost-item-row { display: flex; align-items: center; gap: 6px; }
+  .cost-input {
+    flex: 1; background: var(--bg-input);
+    border: 1px solid var(--border-strong); color: var(--text);
+    padding: 6px 8px; border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; text-align: right; min-width: 0;
+  }
+  .cost-input:focus { outline: none; border-color: var(--accent); }
+  .cost-input::-webkit-outer-spin-button, .cost-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .cost-suffix { color: var(--text-dim); font-family: 'JetBrains Mono', monospace; font-size: 12px; min-width: 16px; }
+
+  /* ========== PORTFOLIO ========== */
   .portfolio-panel {
     background: var(--bg-panel); border: 1px solid var(--border);
     border-radius: 10px; margin-bottom: 16px; overflow: hidden;
@@ -135,23 +181,18 @@
   .portfolio-panel summary:hover { background: var(--bg-hover); }
   .portfolio-panel summary::-webkit-details-marker { display: none; }
   .portfolio-panel summary::after {
-    content: '▾'; font-size: 14px; color: var(--text-dim);
-    transition: transform 0.2s;
+    content: '▾'; font-size: 14px; color: var(--text-dim); transition: transform 0.2s;
   }
   .portfolio-panel[open] summary::after { transform: rotate(180deg); }
   .portfolio-summary-left { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
   .portfolio-summary-right {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 13px; color: var(--text-dim); white-space: nowrap;
-    text-align: right;
+    font-size: 13px; color: var(--text-dim); white-space: nowrap; text-align: right;
   }
   .portfolio-summary-right strong {
     color: var(--accent); font-weight: 600; font-size: 15px; margin-left: 8px;
   }
-  .pf-summary-investment {
-    display: block; font-size: 11px; color: var(--text-faint);
-    margin-top: 2px;
-  }
+  .pf-summary-investment { display: block; font-size: 11px; color: var(--text-faint); margin-top: 2px; }
   .portfolio-body { padding: 0 20px 20px; border-top: 1px solid var(--border); }
   .portfolio-intro {
     font-size: 12px; color: var(--text-dim);
@@ -160,8 +201,7 @@
   .portfolio-intro strong { color: var(--accent); font-weight: 600; }
 
   .pf-rename-row {
-    display: flex; gap: 8px; margin-bottom: 16px; align-items: center;
-    flex-wrap: wrap;
+    display: flex; gap: 8px; margin-bottom: 16px; align-items: center; flex-wrap: wrap;
   }
   .pf-name-input {
     flex: 1; min-width: 200px;
@@ -183,25 +223,39 @@
   }
   .portfolio-inputs {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
     gap: 10px;
   }
   .bond-input {
     background: var(--bg); border: 1px solid var(--border);
     border-radius: 8px; padding: 10px 12px;
-    transition: border-color 0.15s;
+    transition: border-color 0.15s; cursor: pointer;
+    position: relative;
   }
   .bond-input:hover { border-color: var(--border-strong); }
   .bond-input.has-value { border-color: var(--accent-dim); background: rgba(245, 185, 66, 0.04); }
   .bond-input-header {
     display: flex; justify-content: space-between;
-    align-items: baseline; margin-bottom: 4px;
+    align-items: center; margin-bottom: 6px; gap: 6px;
   }
-  .bond-input-name { font-size: 12px; font-weight: 600; color: var(--text); }
+  .bond-input-name { font-size: 12px; font-weight: 600; color: var(--text); flex: 1; min-width: 0; }
   .bond-input-venc {
     font-family: 'JetBrains Mono', monospace;
     font-size: 10px; color: var(--text-faint);
   }
+  .bond-currency-toggle {
+    display: inline-flex; background: var(--bg-panel);
+    border: 1px solid var(--border); border-radius: 4px;
+    padding: 2px; gap: 1px; font-family: 'JetBrains Mono', monospace;
+  }
+  .bond-currency-toggle button {
+    background: transparent; border: none; color: var(--text-dim);
+    padding: 2px 6px; border-radius: 3px; cursor: pointer;
+    font-size: 9px; font-weight: 600; letter-spacing: 0.05em;
+  }
+  .bond-currency-toggle button.active { background: var(--accent); color: var(--bg); }
+  .bond-currency-toggle button:hover:not(.active) { color: var(--text); }
+
   .bond-input-price {
     font-family: 'JetBrains Mono', monospace;
     font-size: 10px; color: var(--text-dim);
@@ -224,9 +278,18 @@
   .vn-input:focus, .price-input:focus { outline: none; border-color: var(--accent); }
   .vn-input::-webkit-outer-spin-button, .vn-input::-webkit-inner-spin-button,
   .price-input::-webkit-outer-spin-button, .price-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  .bond-input-open-hint {
+    position: absolute; bottom: 6px; right: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; color: var(--text-faint);
+    pointer-events: none; opacity: 0.6;
+  }
+  .bond-input:hover .bond-input-open-hint { color: var(--accent); opacity: 1; }
+
   .portfolio-actions { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
 
-  /* ============ FILTERS (multi-select con chips) ============ */
+  /* FILTERS */
   .filters {
     background: var(--bg-panel); border: 1px solid var(--border);
     border-radius: 10px; padding: 20px; margin-bottom: 24px;
@@ -246,7 +309,6 @@
     font-size: 9px; padding: 1px 6px; border-radius: 3px;
     letter-spacing: 0; text-transform: none; font-weight: 700;
   }
-
   .multiselect {
     background: var(--bg); border: 1px solid var(--border-strong);
     color: var(--text); padding: 8px 10px; border-radius: 6px;
@@ -273,7 +335,6 @@
     content: '▾'; margin-left: auto;
     color: var(--text-dim); font-size: 10px;
   }
-
   .multiselect-dropdown {
     position: absolute; top: calc(100% + 4px); left: 0; right: 0;
     background: var(--bg-panel); border: 1px solid var(--accent);
@@ -321,6 +382,7 @@
   .btn.danger:hover { border-color: var(--red); color: var(--red); }
   .btn.small { padding: 5px 10px; font-size: 10px; }
 
+  /* KPIs */
   .kpis {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -369,25 +431,19 @@
     50% { opacity: 0.4; }
   }
 
-  .charts-grid {
-    display: grid; grid-template-columns: 1fr;
-    gap: 16px; margin-bottom: 24px;
-  }
+  /* Charts */
+  .charts-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 24px; }
   .charts-grid.two { grid-template-columns: 2fr 1fr; }
   @media (max-width: 900px) { .charts-grid.two { grid-template-columns: 1fr; } }
   .chart-panel {
     background: var(--bg-panel); border: 1px solid var(--border);
     border-radius: 10px; padding: 20px;
   }
-  .chart-header {
-    display: flex; justify-content: space-between;
-    align-items: center; margin-bottom: 16px;
-  }
+  .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
   .chart-title { font-size: 14px; font-weight: 600; }
   .chart-sub { font-size: 11px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
   .chart-container { position: relative; height: 320px; }
   .chart-container.tall { height: 400px; }
-
   .legend {
     display: flex; gap: 16px; font-size: 12px;
     color: var(--text-dim); font-family: 'JetBrains Mono', monospace;
@@ -395,6 +451,7 @@
   .legend-item { display: flex; align-items: center; gap: 6px; }
   .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
 
+  /* Table */
   .table-panel {
     background: var(--bg-panel); border: 1px solid var(--border);
     border-radius: 10px; overflow: hidden;
@@ -429,10 +486,10 @@
   }
   .badge.pending { background: rgba(245, 185, 66, 0.12); color: var(--accent); border: 1px solid rgba(245, 185, 66, 0.3); }
   .badge.paid { background: rgba(138, 147, 166, 0.1); color: var(--text-dim); border: 1px solid var(--border); }
+  .badge.ars { background: rgba(184, 142, 232, 0.15); color: var(--purple); border: 1px solid rgba(184, 142, 232, 0.3); }
+  .badge.usd { background: rgba(90, 164, 232, 0.15); color: var(--blue); border: 1px solid rgba(90, 164, 232, 0.3); }
 
-  .empty-state {
-    padding: 60px 20px; text-align: center; color: var(--text-dim);
-  }
+  .empty-state { padding: 60px 20px; text-align: center; color: var(--text-dim); }
   .empty-state h3 { color: var(--text); margin-bottom: 8px; font-size: 15px; }
 
   ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -440,11 +497,11 @@
   ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 5px; }
   ::-webkit-scrollbar-thumb:hover { background: #3a4354; }
 
-  /* Modal */
+  /* Modal base */
   .modal-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.75);
     display: none; align-items: center; justify-content: center;
-    z-index: 100;
+    z-index: 100; padding: 20px;
   }
   .modal-backdrop.open { display: flex; }
   .modal {
@@ -462,6 +519,72 @@
   .modal-input:focus { outline: none; border-color: var(--accent); }
   .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
+  /* Modal grande para popup de bono */
+  .bond-modal {
+    max-width: 900px; width: 95%;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .bond-modal-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border);
+    gap: 16px; flex-wrap: wrap;
+  }
+  .bond-modal-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .bond-modal-subtitle { font-size: 12px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
+  .bond-modal-close {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text-dim); width: 32px; height: 32px;
+    border-radius: 6px; cursor: pointer; font-size: 18px;
+  }
+  .bond-modal-close:hover { color: var(--red); border-color: var(--red); }
+
+  .bond-modal-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px; margin-bottom: 20px;
+  }
+  .bond-modal-kpi {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px;
+  }
+  .bond-modal-kpi-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 6px;
+  }
+  .bond-modal-kpi-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px; font-weight: 600;
+  }
+  .bond-modal-kpi-sub { font-size: 10px; color: var(--text-faint); margin-top: 3px; font-family: 'JetBrains Mono', monospace; }
+  .bond-modal-kpi.positive .bond-modal-kpi-value { color: var(--green); }
+  .bond-modal-kpi.negative .bond-modal-kpi-value { color: var(--red); }
+  .bond-modal-kpi.accent .bond-modal-kpi-value { color: var(--accent); }
+
+  .breakdown-section {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px; margin-bottom: 16px;
+  }
+  .breakdown-section h4 {
+    font-size: 13px; font-weight: 600; margin-bottom: 12px;
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .breakdown-section h4 .sub { font-size: 10px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; font-weight: 400; }
+  .breakdown-row {
+    display: flex; justify-content: space-between;
+    padding: 6px 0; font-size: 13px;
+    border-bottom: 1px dashed var(--border);
+  }
+  .breakdown-row:last-child { border-bottom: none; }
+  .breakdown-row.total { font-weight: 600; color: var(--accent); padding-top: 10px; border-top: 1px solid var(--border-strong); margin-top: 4px; border-bottom: none; }
+  .breakdown-row .val { font-family: 'JetBrains Mono', monospace; }
+  .breakdown-row .label-dim { color: var(--text-dim); }
+
+  .modal-table-wrap { max-height: 350px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; }
+  .modal-table-wrap table { font-size: 12px; }
+  .modal-table-wrap th, .modal-table-wrap td { padding: 8px 10px; }
+  .modal-table-wrap .note { padding: 10px; color: var(--text-dim); font-size: 11px; font-family: 'JetBrains Mono', monospace; background: var(--bg); }
+
   footer {
     margin-top: 32px; padding-top: 24px;
     border-top: 1px solid var(--border);
@@ -476,7 +599,7 @@
   <header>
     <div class="header-left">
       <div class="eyebrow">Dashboard · Renta Fija Soberana Argentina</div>
-      <h1>Flujos de Fondos — Bonos en USD</h1>
+      <h1>Flujos de Fondos — Bonos en USD y ARS</h1>
       <div class="subtitle">Bonares, Globales, BONAR 2027/28/29N y BOPREAL · Base 30/360</div>
     </div>
     <div class="view-toggle" id="viewToggle">
@@ -485,7 +608,6 @@
     </div>
   </header>
 
-  <!-- PRICES STATUS BAR -->
   <div class="prices-bar">
     <div class="prices-status">
       <span class="status-dot" id="statusDot"></span>
@@ -504,19 +626,56 @@
     <span id="modeBannerText">Mostrando flujos escalados a tu cartera</span>
   </div>
 
-  <!-- PORTFOLIOS TABS -->
   <div class="portfolio-tabs">
     <span class="portfolio-tabs-label">Carteras:</span>
     <div class="pf-tabs-scroll" id="pfTabs"></div>
     <button class="btn small" id="btnNewPf">+ Nueva cartera</button>
   </div>
 
+  <!-- PANEL DE COSTOS -->
+  <details class="costs-panel" id="costsPanel">
+    <summary>
+      <div>
+        <div class="chart-title">Costos de operación</div>
+        <div class="chart-sub" id="costsSubtitle">Comisiones y derechos aplicados a las compras</div>
+      </div>
+    </summary>
+    <div class="costs-body">
+      <div class="costs-intro">
+        Estos costos se aplican <strong>sobre el monto de compra</strong> de cada bono. Se usan en el pop-up de cada bono para calcular la <strong>TIR neta</strong>. Cambialos una vez y aplican a toda la cartera.
+      </div>
+      <div class="costs-grid">
+        <div class="cost-item">
+          <label class="cost-item-label">Comisión Broker</label>
+          <div class="cost-item-row">
+            <input type="number" class="cost-input" id="costComision" step="0.01" min="0" placeholder="0.50">
+            <span class="cost-suffix">%</span>
+          </div>
+        </div>
+        <div class="cost-item">
+          <label class="cost-item-label">Derechos de Mercado</label>
+          <div class="cost-item-row">
+            <input type="number" class="cost-input" id="costDerechos" step="0.001" min="0" placeholder="0.045">
+            <span class="cost-suffix">%</span>
+          </div>
+        </div>
+        <div class="cost-item">
+          <label class="cost-item-label">IVA s/ Comisiones</label>
+          <div class="cost-item-row">
+            <input type="number" class="cost-input" id="costIva" step="0.01" min="0" placeholder="21">
+            <span class="cost-suffix">%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </details>
+
   <!-- PORTFOLIO PANEL -->
   <details class="portfolio-panel" id="portfolioPanel" open>
     <summary>
       <div class="portfolio-summary-left">
         <div class="chart-title" id="pfTitle">Cartera</div>
-        <div class="chart-sub" id="pfSubtitle">Ingresá el valor nominal (VN) que tenés de cada bono</div>
+        <div class="chart-sub" id="pfSubtitle">Ingresá el VN. Tocá cualquier bono para ver la calculadora de inversión.</div>
       </div>
       <div class="portfolio-summary-right">
         VN Total: <strong id="carteraTotal">USD 0</strong>
@@ -529,7 +688,7 @@
         <button class="btn danger" id="btnDeletePf">Eliminar cartera</button>
       </div>
       <div class="portfolio-intro">
-        El VN (valor nominal) se carga en <strong>USD</strong>. Ejemplo: si compraste <strong>USD 5.000</strong> de VN del AL30, ingresás <strong>5000</strong>. Opcionalmente ingresá el <strong>precio pagado</strong> por cada 100 VN; si no, se usa el precio de mercado (si hay).
+        El <strong>VN</strong> (valor nominal) se carga en USD. Cada card tiene un toggle <strong>USD/ARS</strong> para elegir en qué moneda ver el precio. Hacé <strong>click en el nombre o el espacio libre</strong> de cualquier bono para abrir el pop-up con la calculadora de inversión.
       </div>
       <div id="portfolioSections"></div>
       <div class="portfolio-actions">
@@ -640,9 +799,7 @@
           <div class="chart-sub">Suma de flujos por mes calendario</div>
         </div>
       </div>
-      <div class="chart-container">
-        <canvas id="chartMonthly"></canvas>
-      </div>
+      <div class="chart-container"><canvas id="chartMonthly"></canvas></div>
     </div>
     <div class="chart-panel">
       <div class="chart-header">
@@ -651,9 +808,7 @@
           <div class="chart-sub">Flujo total en rango filtrado</div>
         </div>
       </div>
-      <div class="chart-container">
-        <canvas id="chartBonds"></canvas>
-      </div>
+      <div class="chart-container"><canvas id="chartBonds"></canvas></div>
     </div>
   </div>
 
@@ -674,14 +829,14 @@
 
   <footer>
     <div><span class="footer-tag">Fuente flujos</span> · Decreto 701/2020 · Comunicaciones BCRA B12695 y B12999 · Resoluciones Secretaría de Finanzas (AN29, AO27, AO28)</div>
-    <div><span class="footer-tag">Fuente precios</span> · data912.com (API pública) · Fallback a ingreso manual si hay error de CORS</div>
-    <div><span class="footer-tag">Persistencia</span> · Carteras y precios manuales se guardan en localStorage del navegador</div>
-    <div><span class="footer-tag">Nota CORS</span> · Si el HTML se abre directamente (file://) algunos navegadores bloquean la API. Funciona mejor si lo servís con un server local o lo subís a un hosting</div>
+    <div><span class="footer-tag">Fuente precios</span> · data912.com (API pública) · Endpoints /arg_bonds (ARS) y /arg_notes (USD)</div>
+    <div><span class="footer-tag">Persistencia</span> · Carteras, costos y precios manuales se guardan en localStorage</div>
+    <div><span class="footer-tag">Aviso</span> · Los cálculos son estimativos. La TIR neta usa convención 30/360 y asume flujos reinvertidos a la misma tasa. Costos reales pueden variar según broker. No es asesoramiento financiero.</div>
     <div><span class="footer-tag">Actualizado</span> · 21/04/2026</div>
   </footer>
 </div>
 
-<!-- Modal para crear nueva cartera -->
+<!-- Modal nueva cartera -->
 <div class="modal-backdrop" id="modalNewPf">
   <div class="modal">
     <h3>Nueva cartera</h3>
@@ -694,75 +849,68 @@
   </div>
 </div>
 
+<!-- Modal detalle de bono (calculadora individual) -->
+<div class="modal-backdrop" id="modalBond">
+  <div class="modal bond-modal" id="modalBondContent"></div>
+</div>
+
 <script>
+
   const DATA = [{"Fecha_Pago": "2021-07-09", "Anio": 2021, "Mes": 7, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.00125, "Interes_USD": 0.1059, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.1059}, {"Fecha_Pago": "2021-07-09", "Anio": 2021, "Mes": 7, "Bono": "AL29 / GD29", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.01, "Interes_USD": 0.8472, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.8472}, {"Fecha_Pago": "2021-07-09", "Anio": 2021, "Mes": 7, "Bono": "AL30 / GD30", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.00125, "Interes_USD": 0.1059, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.1059}, {"Fecha_Pago": "2021-07-09", "Anio": 2021, "Mes": 7, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.00125, "Interes_USD": 0.1059, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.1059}, {"Fecha_Pago": "2021-07-09", "Anio": 2021, "Mes": 7, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.00125, "Interes_USD": 0.1059, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.1059}, {"Fecha_Pago": "2021-07-09", "Anio": 2021, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.00125, "Interes_USD": 0.1059, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.1059}, {"Fecha_Pago": "2022-01-09", "Anio": 2022, "Mes": 1, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.02, "Interes_USD": 1.0, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.0}, {"Fecha_Pago": "2022-01-09", "Anio": 2022, "Mes": 1, "Bono": "AL29 / GD29", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.01, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2022-01-09", "Anio": 2022, "Mes": 1, "Bono": "AL30 / GD30", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.005, "Interes_USD": 0.25, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.25}, {"Fecha_Pago": "2022-01-09", "Anio": 2022, "Mes": 1, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.01125, "Interes_USD": 0.5625, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5625}, {"Fecha_Pago": "2022-01-09", "Anio": 2022, "Mes": 1, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.025, "Interes_USD": 1.25, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.25}, {"Fecha_Pago": "2022-01-09", "Anio": 2022, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.01125, "Interes_USD": 0.5625, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5625}, {"Fecha_Pago": "2022-07-09", "Anio": 2022, "Mes": 7, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.02, "Interes_USD": 1.0, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.0}, {"Fecha_Pago": "2022-07-09", "Anio": 2022, "Mes": 7, "Bono": "AL29 / GD29", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.01, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2022-07-09", "Anio": 2022, "Mes": 7, "Bono": "AL30 / GD30", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.005, "Interes_USD": 0.25, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.25}, {"Fecha_Pago": "2022-07-09", "Anio": 2022, "Mes": 7, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.01125, "Interes_USD": 0.5625, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5625}, {"Fecha_Pago": "2022-07-09", "Anio": 2022, "Mes": 7, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.025, "Interes_USD": 1.25, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.25}, {"Fecha_Pago": "2022-07-09", "Anio": 2022, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.01125, "Interes_USD": 0.5625, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5625}, {"Fecha_Pago": "2023-01-09", "Anio": 2023, "Mes": 1, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.03875, "Interes_USD": 1.9375, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.9375}, {"Fecha_Pago": "2023-01-09", "Anio": 2023, "Mes": 1, "Bono": "AL29 / GD29", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.01, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2023-01-09", "Anio": 2023, "Mes": 1, "Bono": "AL30 / GD30", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.005, "Interes_USD": 0.25, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.25}, {"Fecha_Pago": "2023-01-09", "Anio": 2023, "Mes": 1, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.015, "Interes_USD": 0.75, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.75}, {"Fecha_Pago": "2023-01-09", "Anio": 2023, "Mes": 1, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.035, "Interes_USD": 1.75, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.75}, {"Fecha_Pago": "2023-01-09", "Anio": 2023, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.015, "Interes_USD": 0.75, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.75}, {"Fecha_Pago": "2023-07-09", "Anio": 2023, "Mes": 7, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.03875, "Interes_USD": 1.9375, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.9375}, {"Fecha_Pago": "2023-07-09", "Anio": 2023, "Mes": 7, "Bono": "AL29 / GD29", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.01, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2023-07-09", "Anio": 2023, "Mes": 7, "Bono": "AL30 / GD30", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.005, "Interes_USD": 0.25, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.25}, {"Fecha_Pago": "2023-07-09", "Anio": 2023, "Mes": 7, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.015, "Interes_USD": 0.75, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.75}, {"Fecha_Pago": "2023-07-09", "Anio": 2023, "Mes": 7, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.035, "Interes_USD": 1.75, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.75}, {"Fecha_Pago": "2023-07-09", "Anio": 2023, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.015, "Interes_USD": 0.75, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.75}, {"Fecha_Pago": "2024-01-09", "Anio": 2024, "Mes": 1, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.0425, "Interes_USD": 2.125, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.125}, {"Fecha_Pago": "2024-01-09", "Anio": 2024, "Mes": 1, "Bono": "AL29 / GD29", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.01, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2024-01-09", "Anio": 2024, "Mes": 1, "Bono": "AL30 / GD30", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.0075, "Interes_USD": 0.375, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.375}, {"Fecha_Pago": "2024-01-09", "Anio": 2024, "Mes": 1, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.03625, "Interes_USD": 1.8125, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.8125}, {"Fecha_Pago": "2024-01-09", "Anio": 2024, "Mes": 1, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.035, "Interes_USD": 1.75, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.75}, {"Fecha_Pago": "2024-01-09", "Anio": 2024, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.03625, "Interes_USD": 1.8125, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.8125}, {"Fecha_Pago": "2024-07-09", "Anio": 2024, "Mes": 7, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.0425, "Interes_USD": 2.125, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.125}, {"Fecha_Pago": "2024-07-09", "Anio": 2024, "Mes": 7, "Bono": "AL29 / GD29", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.01, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2024-07-09", "Anio": 2024, "Mes": 7, "Bono": "AL30 / GD30", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.0075, "Interes_USD": 0.375, "Amortizacion_USD": 4.0, "Flujo_Total_USD": 4.375}, {"Fecha_Pago": "2024-07-09", "Anio": 2024, "Mes": 7, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.03625, "Interes_USD": 1.8125, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.8125}, {"Fecha_Pago": "2024-07-09", "Anio": 2024, "Mes": 7, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.035, "Interes_USD": 1.75, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.75}, {"Fecha_Pago": "2024-07-09", "Anio": 2024, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.03625, "Interes_USD": 1.8125, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.8125}, {"Fecha_Pago": "2024-07-31", "Anio": 2024, "Mes": 7, "Bono": "BOPREAL Serie 3", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.03, "Interes_USD": 0.75, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.75}, {"Fecha_Pago": "2024-10-31", "Anio": 2024, "Mes": 10, "Bono": "BOPREAL Serie 1", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.5}, {"Fecha_Pago": "2024-10-31", "Anio": 2024, "Mes": 10, "Bono": "BOPREAL Serie 3", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.03, "Interes_USD": 0.75, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.75}, {"Fecha_Pago": "2024-10-31", "Anio": 2024, "Mes": 10, "Bono": "BPD7 (BOPREAL S.1-D)", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.5}, {"Fecha_Pago": "2025-01-09", "Anio": 2025, "Mes": 1, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.5}, {"Fecha_Pago": "2025-01-09", "Anio": 2025, "Mes": 1, "Bono": "AL29 / GD29", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.01, "Interes_USD": 0.5, "Amortizacion_USD": 10.0, "Flujo_Total_USD": 10.5}, {"Fecha_Pago": "2025-01-09", "Anio": 2025, "Mes": 1, "Bono": "AL30 / GD30", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 0.96, "Tasa_Anual_Pct": 0.0075, "Interes_USD": 0.36, "Amortizacion_USD": 8.0, "Flujo_Total_USD": 8.36}, {"Fecha_Pago": "2025-01-09", "Anio": 2025, "Mes": 1, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.04125, "Interes_USD": 2.0625, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.0625}, {"Fecha_Pago": "2025-01-09", "Anio": 2025, "Mes": 1, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.035, "Interes_USD": 1.75, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.75}, {"Fecha_Pago": "2025-01-09", "Anio": 2025, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.04125, "Interes_USD": 2.0625, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 4.3352}, {"Fecha_Pago": "2025-01-31", "Anio": 2025, "Mes": 1, "Bono": "BOPREAL Serie 3", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.03, "Interes_USD": 0.75, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.75}, {"Fecha_Pago": "2025-04-30", "Anio": 2025, "Mes": 4, "Bono": "BOPREAL Serie 1", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.5}, {"Fecha_Pago": "2025-04-30", "Anio": 2025, "Mes": 4, "Bono": "BOPREAL Serie 3", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.03, "Interes_USD": 0.75, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.75}, {"Fecha_Pago": "2025-04-30", "Anio": 2025, "Mes": 4, "Bono": "BPD7 (BOPREAL S.1-D)", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.5}, {"Fecha_Pago": "2025-07-09", "Anio": 2025, "Mes": 7, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.5}, {"Fecha_Pago": "2025-07-09", "Anio": 2025, "Mes": 7, "Bono": "AL29 / GD29", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 0.9, "Tasa_Anual_Pct": 0.01, "Interes_USD": 0.45, "Amortizacion_USD": 10.0, "Flujo_Total_USD": 10.45}, {"Fecha_Pago": "2025-07-09", "Anio": 2025, "Mes": 7, "Bono": "AL30 / GD30", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 0.88, "Tasa_Anual_Pct": 0.0075, "Interes_USD": 0.33, "Amortizacion_USD": 8.0, "Flujo_Total_USD": 8.33}, {"Fecha_Pago": "2025-07-09", "Anio": 2025, "Mes": 7, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.04125, "Interes_USD": 2.0625, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.0625}, {"Fecha_Pago": "2025-07-09", "Anio": 2025, "Mes": 7, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.035, "Interes_USD": 1.75, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.75}, {"Fecha_Pago": "2025-07-09", "Anio": 2025, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 0.977273, "Tasa_Anual_Pct": 0.04125, "Interes_USD": 2.0156, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 4.2884}, {"Fecha_Pago": "2025-07-31", "Anio": 2025, "Mes": 7, "Bono": "BOPREAL Serie 3", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.03, "Interes_USD": 0.75, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.75}, {"Fecha_Pago": "2025-10-31", "Anio": 2025, "Mes": 10, "Bono": "BOPREAL Serie 1", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.5}, {"Fecha_Pago": "2025-10-31", "Anio": 2025, "Mes": 10, "Bono": "BOPREAL Serie 3", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.03, "Interes_USD": 0.75, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.75}, {"Fecha_Pago": "2025-10-31", "Anio": 2025, "Mes": 10, "Bono": "BOPREAL Serie 4", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.03, "Interes_USD": 1.0583, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.0583}, {"Fecha_Pago": "2025-10-31", "Anio": 2025, "Mes": 10, "Bono": "BPD7 (BOPREAL S.1-D)", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.5}, {"Fecha_Pago": "2025-11-30", "Anio": 2025, "Mes": 11, "Bono": "BOPREAL Serie 3", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.03, "Interes_USD": 0.75, "Amortizacion_USD": 33.0, "Flujo_Total_USD": 33.75}, {"Fecha_Pago": "2026-01-09", "Anio": 2026, "Mes": 1, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.5}, {"Fecha_Pago": "2026-01-09", "Anio": 2026, "Mes": 1, "Bono": "AL29 / GD29", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 0.8, "Tasa_Anual_Pct": 0.01, "Interes_USD": 0.4, "Amortizacion_USD": 10.0, "Flujo_Total_USD": 10.4}, {"Fecha_Pago": "2026-01-09", "Anio": 2026, "Mes": 1, "Bono": "AL30 / GD30", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 0.8, "Tasa_Anual_Pct": 0.0075, "Interes_USD": 0.3, "Amortizacion_USD": 8.0, "Flujo_Total_USD": 8.3}, {"Fecha_Pago": "2026-01-09", "Anio": 2026, "Mes": 1, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.04125, "Interes_USD": 2.0625, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.0625}, {"Fecha_Pago": "2026-01-09", "Anio": 2026, "Mes": 1, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.035, "Interes_USD": 1.75, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.75}, {"Fecha_Pago": "2026-01-09", "Anio": 2026, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 0.954545, "Tasa_Anual_Pct": 0.04125, "Interes_USD": 1.9688, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 4.2415}, {"Fecha_Pago": "2026-02-28", "Anio": 2026, "Mes": 2, "Bono": "BOPREAL Serie 3", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 0.67, "Tasa_Anual_Pct": 0.03, "Interes_USD": 0.5025, "Amortizacion_USD": 33.0, "Flujo_Total_USD": 33.5025}, {"Fecha_Pago": "2026-03-30", "Anio": 2026, "Mes": 3, "Bono": "AO27", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pagado", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5667, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5667}, {"Fecha_Pago": "2026-04-28", "Anio": 2026, "Mes": 4, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5167, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5167}, {"Fecha_Pago": "2026-04-30", "Anio": 2026, "Mes": 4, "Bono": "AO27", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2026-04-30", "Anio": 2026, "Mes": 4, "Bono": "BOPREAL Serie 1", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.5}, {"Fecha_Pago": "2026-04-30", "Anio": 2026, "Mes": 4, "Bono": "BOPREAL Serie 4", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.03, "Interes_USD": 1.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.5}, {"Fecha_Pago": "2026-04-30", "Anio": 2026, "Mes": 4, "Bono": "BPD7 (BOPREAL S.1-D)", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.5}, {"Fecha_Pago": "2026-05-28", "Anio": 2026, "Mes": 5, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2026-05-30", "Anio": 2026, "Mes": 5, "Bono": "AN29", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.065, "Interes_USD": 3.0333, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 3.0333}, {"Fecha_Pago": "2026-05-30", "Anio": 2026, "Mes": 5, "Bono": "AO27", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2026-05-31", "Anio": 2026, "Mes": 5, "Bono": "BOPREAL Serie 3", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.34, "Tasa_Anual_Pct": 0.03, "Interes_USD": 0.255, "Amortizacion_USD": 34.0, "Flujo_Total_USD": 34.255}, {"Fecha_Pago": "2026-06-28", "Anio": 2026, "Mes": 6, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2026-06-30", "Anio": 2026, "Mes": 6, "Bono": "AO27", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2026-07-09", "Anio": 2026, "Mes": 7, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.5}, {"Fecha_Pago": "2026-07-09", "Anio": 2026, "Mes": 7, "Bono": "AL29 / GD29", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.7, "Tasa_Anual_Pct": 0.01, "Interes_USD": 0.35, "Amortizacion_USD": 10.0, "Flujo_Total_USD": 10.35}, {"Fecha_Pago": "2026-07-09", "Anio": 2026, "Mes": 7, "Bono": "AL30 / GD30", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.72, "Tasa_Anual_Pct": 0.0075, "Interes_USD": 0.27, "Amortizacion_USD": 8.0, "Flujo_Total_USD": 8.27}, {"Fecha_Pago": "2026-07-09", "Anio": 2026, "Mes": 7, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.04125, "Interes_USD": 2.0625, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.0625}, {"Fecha_Pago": "2026-07-09", "Anio": 2026, "Mes": 7, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.035, "Interes_USD": 1.75, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.75}, {"Fecha_Pago": "2026-07-09", "Anio": 2026, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.931818, "Tasa_Anual_Pct": 0.04125, "Interes_USD": 1.9219, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 4.1946}, {"Fecha_Pago": "2026-07-28", "Anio": 2026, "Mes": 7, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2026-07-30", "Anio": 2026, "Mes": 7, "Bono": "AO27", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2026-08-28", "Anio": 2026, "Mes": 8, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2026-08-30", "Anio": 2026, "Mes": 8, "Bono": "AO27", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2026-09-28", "Anio": 2026, "Mes": 9, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2026-09-30", "Anio": 2026, "Mes": 9, "Bono": "AO27", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2026-10-28", "Anio": 2026, "Mes": 10, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2026-10-30", "Anio": 2026, "Mes": 10, "Bono": "AO27", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2026-10-31", "Anio": 2026, "Mes": 10, "Bono": "BOPREAL Serie 1", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.5}, {"Fecha_Pago": "2026-10-31", "Anio": 2026, "Mes": 10, "Bono": "BOPREAL Serie 4", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.03, "Interes_USD": 1.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.5}, {"Fecha_Pago": "2026-10-31", "Anio": 2026, "Mes": 10, "Bono": "BPD7 (BOPREAL S.1-D)", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.5}, {"Fecha_Pago": "2026-11-28", "Anio": 2026, "Mes": 11, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2026-11-30", "Anio": 2026, "Mes": 11, "Bono": "AN29", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.065, "Interes_USD": 3.25, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 3.25}, {"Fecha_Pago": "2026-11-30", "Anio": 2026, "Mes": 11, "Bono": "AO27", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2026-12-28", "Anio": 2026, "Mes": 12, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2026-12-30", "Anio": 2026, "Mes": 12, "Bono": "AO27", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2027-01-09", "Anio": 2027, "Mes": 1, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.5}, {"Fecha_Pago": "2027-01-09", "Anio": 2027, "Mes": 1, "Bono": "AL29 / GD29", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.6, "Tasa_Anual_Pct": 0.01, "Interes_USD": 0.3, "Amortizacion_USD": 10.0, "Flujo_Total_USD": 10.3}, {"Fecha_Pago": "2027-01-09", "Anio": 2027, "Mes": 1, "Bono": "AL30 / GD30", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.64, "Tasa_Anual_Pct": 0.0075, "Interes_USD": 0.24, "Amortizacion_USD": 8.0, "Flujo_Total_USD": 8.24}, {"Fecha_Pago": "2027-01-09", "Anio": 2027, "Mes": 1, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.04125, "Interes_USD": 2.0625, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.0625}, {"Fecha_Pago": "2027-01-09", "Anio": 2027, "Mes": 1, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.035, "Interes_USD": 1.75, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.75}, {"Fecha_Pago": "2027-01-09", "Anio": 2027, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.909091, "Tasa_Anual_Pct": 0.04125, "Interes_USD": 1.875, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 4.1477}, {"Fecha_Pago": "2027-01-28", "Anio": 2027, "Mes": 1, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2027-01-30", "Anio": 2027, "Mes": 1, "Bono": "AO27", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2027-02-28", "Anio": 2027, "Mes": 2, "Bono": "AO27", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.4667, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.4667}, {"Fecha_Pago": "2027-02-28", "Anio": 2027, "Mes": 2, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2027-03-28", "Anio": 2027, "Mes": 3, "Bono": "AO27", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2027-03-28", "Anio": 2027, "Mes": 3, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2027-04-28", "Anio": 2027, "Mes": 4, "Bono": "AO27", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2027-04-28", "Anio": 2027, "Mes": 4, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2027-04-30", "Anio": 2027, "Mes": 4, "Bono": "BOPREAL Serie 1", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 50.0, "Flujo_Total_USD": 52.5}, {"Fecha_Pago": "2027-04-30", "Anio": 2027, "Mes": 4, "Bono": "BOPREAL Serie 4", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.03, "Interes_USD": 1.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.5}, {"Fecha_Pago": "2027-04-30", "Anio": 2027, "Mes": 4, "Bono": "BPD7 (BOPREAL S.1-D)", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 50.0, "Flujo_Total_USD": 52.5}, {"Fecha_Pago": "2027-05-28", "Anio": 2027, "Mes": 5, "Bono": "AO27", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2027-05-28", "Anio": 2027, "Mes": 5, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2027-05-30", "Anio": 2027, "Mes": 5, "Bono": "AN29", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.065, "Interes_USD": 3.25, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 3.25}, {"Fecha_Pago": "2027-06-28", "Anio": 2027, "Mes": 6, "Bono": "AO27", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2027-06-28", "Anio": 2027, "Mes": 6, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2027-07-09", "Anio": 2027, "Mes": 7, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 7.0455}, {"Fecha_Pago": "2027-07-09", "Anio": 2027, "Mes": 7, "Bono": "AL29 / GD29", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.5, "Tasa_Anual_Pct": 0.01, "Interes_USD": 0.25, "Amortizacion_USD": 10.0, "Flujo_Total_USD": 10.25}, {"Fecha_Pago": "2027-07-09", "Anio": 2027, "Mes": 7, "Bono": "AL30 / GD30", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.56, "Tasa_Anual_Pct": 0.0075, "Interes_USD": 0.21, "Amortizacion_USD": 8.0, "Flujo_Total_USD": 8.21}, {"Fecha_Pago": "2027-07-09", "Anio": 2027, "Mes": 7, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.04125, "Interes_USD": 2.0625, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.0625}, {"Fecha_Pago": "2027-07-09", "Anio": 2027, "Mes": 7, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.035, "Interes_USD": 1.75, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.75}, {"Fecha_Pago": "2027-07-09", "Anio": 2027, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.886364, "Tasa_Anual_Pct": 0.04125, "Interes_USD": 1.8281, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 4.1009}, {"Fecha_Pago": "2027-07-28", "Anio": 2027, "Mes": 7, "Bono": "AO27", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2027-07-28", "Anio": 2027, "Mes": 7, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2027-08-28", "Anio": 2027, "Mes": 8, "Bono": "AO27", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2027-08-28", "Anio": 2027, "Mes": 8, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2027-09-28", "Anio": 2027, "Mes": 9, "Bono": "AO27", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2027-09-28", "Anio": 2027, "Mes": 9, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2027-10-28", "Anio": 2027, "Mes": 10, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2027-10-30", "Anio": 2027, "Mes": 10, "Bono": "AO27", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5333, "Amortizacion_USD": 100.0, "Flujo_Total_USD": 100.5333}, {"Fecha_Pago": "2027-10-31", "Anio": 2027, "Mes": 10, "Bono": "BOPREAL Serie 1", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.5, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.25, "Amortizacion_USD": 50.0, "Flujo_Total_USD": 51.25}, {"Fecha_Pago": "2027-10-31", "Anio": 2027, "Mes": 10, "Bono": "BOPREAL Serie 4", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.03, "Interes_USD": 1.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.5}, {"Fecha_Pago": "2027-10-31", "Anio": 2027, "Mes": 10, "Bono": "BPD7 (BOPREAL S.1-D)", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.5, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.25, "Amortizacion_USD": 50.0, "Flujo_Total_USD": 51.25}, {"Fecha_Pago": "2027-11-28", "Anio": 2027, "Mes": 11, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2027-11-30", "Anio": 2027, "Mes": 11, "Bono": "AN29", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.065, "Interes_USD": 3.25, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 3.25}, {"Fecha_Pago": "2027-12-28", "Anio": 2027, "Mes": 12, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2028-01-09", "Anio": 2028, "Mes": 1, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.954545, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.3864, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 6.9318}, {"Fecha_Pago": "2028-01-09", "Anio": 2028, "Mes": 1, "Bono": "AL29 / GD29", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.4, "Tasa_Anual_Pct": 0.01, "Interes_USD": 0.2, "Amortizacion_USD": 10.0, "Flujo_Total_USD": 10.2}, {"Fecha_Pago": "2028-01-09", "Anio": 2028, "Mes": 1, "Bono": "AL30 / GD30", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.48, "Tasa_Anual_Pct": 0.0175, "Interes_USD": 0.42, "Amortizacion_USD": 8.0, "Flujo_Total_USD": 8.42}, {"Fecha_Pago": "2028-01-09", "Anio": 2028, "Mes": 1, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.0475, "Interes_USD": 2.375, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.375}, {"Fecha_Pago": "2028-01-09", "Anio": 2028, "Mes": 1, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.035, "Interes_USD": 1.75, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 5.3214}, {"Fecha_Pago": "2028-01-09", "Anio": 2028, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.863636, "Tasa_Anual_Pct": 0.04375, "Interes_USD": 1.8892, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 4.1619}, {"Fecha_Pago": "2028-01-28", "Anio": 2028, "Mes": 1, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2028-02-28", "Anio": 2028, "Mes": 2, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2028-03-28", "Anio": 2028, "Mes": 3, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2028-04-28", "Anio": 2028, "Mes": 4, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2028-04-30", "Anio": 2028, "Mes": 4, "Bono": "BOPREAL Serie 4", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.03, "Interes_USD": 1.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 1.5}, {"Fecha_Pago": "2028-05-28", "Anio": 2028, "Mes": 5, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2028-05-30", "Anio": 2028, "Mes": 5, "Bono": "AN29", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.065, "Interes_USD": 3.25, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 3.25}, {"Fecha_Pago": "2028-06-28", "Anio": 2028, "Mes": 6, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2028-07-09", "Anio": 2028, "Mes": 7, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.909091, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.2727, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 6.8182}, {"Fecha_Pago": "2028-07-09", "Anio": 2028, "Mes": 7, "Bono": "AL29 / GD29", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.3, "Tasa_Anual_Pct": 0.01, "Interes_USD": 0.15, "Amortizacion_USD": 10.0, "Flujo_Total_USD": 10.15}, {"Fecha_Pago": "2028-07-09", "Anio": 2028, "Mes": 7, "Bono": "AL30 / GD30", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.4, "Tasa_Anual_Pct": 0.0175, "Interes_USD": 0.35, "Amortizacion_USD": 8.0, "Flujo_Total_USD": 8.35}, {"Fecha_Pago": "2028-07-09", "Anio": 2028, "Mes": 7, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.0475, "Interes_USD": 2.375, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.375}, {"Fecha_Pago": "2028-07-09", "Anio": 2028, "Mes": 7, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.964286, "Tasa_Anual_Pct": 0.035, "Interes_USD": 1.6875, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 5.2589}, {"Fecha_Pago": "2028-07-09", "Anio": 2028, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.840909, "Tasa_Anual_Pct": 0.04375, "Interes_USD": 1.8395, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 4.1122}, {"Fecha_Pago": "2028-07-28", "Anio": 2028, "Mes": 7, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2028-08-28", "Anio": 2028, "Mes": 8, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2028-09-28", "Anio": 2028, "Mes": 9, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 0.5}, {"Fecha_Pago": "2028-10-31", "Anio": 2028, "Mes": 10, "Bono": "AO28", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.06, "Interes_USD": 0.55, "Amortizacion_USD": 100.0, "Flujo_Total_USD": 100.55}, {"Fecha_Pago": "2028-10-31", "Anio": 2028, "Mes": 10, "Bono": "BOPREAL Serie 4", "Tipo_Instrumento": "BOPREAL", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.03, "Interes_USD": 1.5, "Amortizacion_USD": 100.0, "Flujo_Total_USD": 101.5}, {"Fecha_Pago": "2028-11-30", "Anio": 2028, "Mes": 11, "Bono": "AN29", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.065, "Interes_USD": 3.25, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 3.25}, {"Fecha_Pago": "2029-01-09", "Anio": 2029, "Mes": 1, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.863636, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.1591, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 6.7045}, {"Fecha_Pago": "2029-01-09", "Anio": 2029, "Mes": 1, "Bono": "AL29 / GD29", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.2, "Tasa_Anual_Pct": 0.01, "Interes_USD": 0.1, "Amortizacion_USD": 10.0, "Flujo_Total_USD": 10.1}, {"Fecha_Pago": "2029-01-09", "Anio": 2029, "Mes": 1, "Bono": "AL30 / GD30", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.32, "Tasa_Anual_Pct": 0.0175, "Interes_USD": 0.28, "Amortizacion_USD": 8.0, "Flujo_Total_USD": 8.28}, {"Fecha_Pago": "2029-01-09", "Anio": 2029, "Mes": 1, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.5}, {"Fecha_Pago": "2029-01-09", "Anio": 2029, "Mes": 1, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.928571, "Tasa_Anual_Pct": 0.035, "Interes_USD": 1.625, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 5.1964}, {"Fecha_Pago": "2029-01-09", "Anio": 2029, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.818182, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.0455, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 4.3182}, {"Fecha_Pago": "2029-05-30", "Anio": 2029, "Mes": 5, "Bono": "AN29", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.065, "Interes_USD": 3.25, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 3.25}, {"Fecha_Pago": "2029-07-09", "Anio": 2029, "Mes": 7, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.818182, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.0455, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 6.5909}, {"Fecha_Pago": "2029-07-09", "Anio": 2029, "Mes": 7, "Bono": "AL29 / GD29", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.1, "Tasa_Anual_Pct": 0.01, "Interes_USD": 0.05, "Amortizacion_USD": 10.0, "Flujo_Total_USD": 10.05}, {"Fecha_Pago": "2029-07-09", "Anio": 2029, "Mes": 7, "Bono": "AL30 / GD30", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.24, "Tasa_Anual_Pct": 0.0175, "Interes_USD": 0.21, "Amortizacion_USD": 8.0, "Flujo_Total_USD": 8.21}, {"Fecha_Pago": "2029-07-09", "Anio": 2029, "Mes": 7, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.5}, {"Fecha_Pago": "2029-07-09", "Anio": 2029, "Mes": 7, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.892857, "Tasa_Anual_Pct": 0.035, "Interes_USD": 1.5625, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 5.1339}, {"Fecha_Pago": "2029-07-09", "Anio": 2029, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.795455, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.9886, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 4.2614}, {"Fecha_Pago": "2029-11-30", "Anio": 2029, "Mes": 11, "Bono": "AN29", "Tipo_Instrumento": "Bonar", "Ley": "Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.065, "Interes_USD": 3.25, "Amortizacion_USD": 100.0, "Flujo_Total_USD": 103.25}, {"Fecha_Pago": "2030-01-09", "Anio": 2030, "Mes": 1, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.772727, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.9318, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 6.4773}, {"Fecha_Pago": "2030-01-09", "Anio": 2030, "Mes": 1, "Bono": "AL30 / GD30", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.16, "Tasa_Anual_Pct": 0.0175, "Interes_USD": 0.14, "Amortizacion_USD": 8.0, "Flujo_Total_USD": 8.14}, {"Fecha_Pago": "2030-01-09", "Anio": 2030, "Mes": 1, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.5}, {"Fecha_Pago": "2030-01-09", "Anio": 2030, "Mes": 1, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.857143, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 2.0893, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 5.6607}, {"Fecha_Pago": "2030-01-09", "Anio": 2030, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.772727, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.9318, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 4.2045}, {"Fecha_Pago": "2030-07-09", "Anio": 2030, "Mes": 7, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.727273, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.8182, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 6.3636}, {"Fecha_Pago": "2030-07-09", "Anio": 2030, "Mes": 7, "Bono": "AL30 / GD30", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.08, "Tasa_Anual_Pct": 0.0175, "Interes_USD": 0.07, "Amortizacion_USD": 8.0, "Flujo_Total_USD": 8.07}, {"Fecha_Pago": "2030-07-09", "Anio": 2030, "Mes": 7, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 0.0, "Flujo_Total_USD": 2.5}, {"Fecha_Pago": "2030-07-09", "Anio": 2030, "Mes": 7, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.821429, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 2.0022, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 5.5737}, {"Fecha_Pago": "2030-07-09", "Anio": 2030, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.75, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.875, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 4.1477}, {"Fecha_Pago": "2031-01-09", "Anio": 2031, "Mes": 1, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.681818, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.7045, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 6.25}, {"Fecha_Pago": "2031-01-09", "Anio": 2031, "Mes": 1, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 1.0, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.5, "Amortizacion_USD": 10.0, "Flujo_Total_USD": 12.5}, {"Fecha_Pago": "2031-01-09", "Anio": 2031, "Mes": 1, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.785714, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 1.9152, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 5.4866}, {"Fecha_Pago": "2031-01-09", "Anio": 2031, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.727273, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.8182, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 4.0909}, {"Fecha_Pago": "2031-07-09", "Anio": 2031, "Mes": 7, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.636364, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.5909, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 6.1364}, {"Fecha_Pago": "2031-07-09", "Anio": 2031, "Mes": 7, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.9, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.25, "Amortizacion_USD": 10.0, "Flujo_Total_USD": 12.25}, {"Fecha_Pago": "2031-07-09", "Anio": 2031, "Mes": 7, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.75, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 1.8281, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 5.3996}, {"Fecha_Pago": "2031-07-09", "Anio": 2031, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.704545, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.7614, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 4.0341}, {"Fecha_Pago": "2032-01-09", "Anio": 2032, "Mes": 1, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.590909, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.4773, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 6.0227}, {"Fecha_Pago": "2032-01-09", "Anio": 2032, "Mes": 1, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.8, "Tasa_Anual_Pct": 0.05, "Interes_USD": 2.0, "Amortizacion_USD": 10.0, "Flujo_Total_USD": 12.0}, {"Fecha_Pago": "2032-01-09", "Anio": 2032, "Mes": 1, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.714286, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 1.7411, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 5.3125}, {"Fecha_Pago": "2032-01-09", "Anio": 2032, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.681818, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.7045, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 3.9773}, {"Fecha_Pago": "2032-07-09", "Anio": 2032, "Mes": 7, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.545455, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.3636, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 5.9091}, {"Fecha_Pago": "2032-07-09", "Anio": 2032, "Mes": 7, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.7, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.75, "Amortizacion_USD": 10.0, "Flujo_Total_USD": 11.75}, {"Fecha_Pago": "2032-07-09", "Anio": 2032, "Mes": 7, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.678571, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 1.654, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 5.2254}, {"Fecha_Pago": "2032-07-09", "Anio": 2032, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.659091, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.6477, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 3.9205}, {"Fecha_Pago": "2033-01-09", "Anio": 2033, "Mes": 1, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.5, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.25, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 5.7955}, {"Fecha_Pago": "2033-01-09", "Anio": 2033, "Mes": 1, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.6, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.5, "Amortizacion_USD": 10.0, "Flujo_Total_USD": 11.5}, {"Fecha_Pago": "2033-01-09", "Anio": 2033, "Mes": 1, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.642857, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 1.567, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 5.1384}, {"Fecha_Pago": "2033-01-09", "Anio": 2033, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.636364, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.5909, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 3.8636}, {"Fecha_Pago": "2033-07-09", "Anio": 2033, "Mes": 7, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.454545, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.1364, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 5.6818}, {"Fecha_Pago": "2033-07-09", "Anio": 2033, "Mes": 7, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.5, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.25, "Amortizacion_USD": 10.0, "Flujo_Total_USD": 11.25}, {"Fecha_Pago": "2033-07-09", "Anio": 2033, "Mes": 7, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.607143, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 1.4799, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 5.0513}, {"Fecha_Pago": "2033-07-09", "Anio": 2033, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.613636, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.5341, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 3.8068}, {"Fecha_Pago": "2034-01-09", "Anio": 2034, "Mes": 1, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.409091, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.0227, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 5.5682}, {"Fecha_Pago": "2034-01-09", "Anio": 2034, "Mes": 1, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.4, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.0, "Amortizacion_USD": 10.0, "Flujo_Total_USD": 11.0}, {"Fecha_Pago": "2034-01-09", "Anio": 2034, "Mes": 1, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.571429, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 1.3929, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 4.9643}, {"Fecha_Pago": "2034-01-09", "Anio": 2034, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.590909, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.4773, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 3.75}, {"Fecha_Pago": "2034-07-09", "Anio": 2034, "Mes": 7, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.363636, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.9091, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 5.4545}, {"Fecha_Pago": "2034-07-09", "Anio": 2034, "Mes": 7, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.3, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.75, "Amortizacion_USD": 10.0, "Flujo_Total_USD": 10.75}, {"Fecha_Pago": "2034-07-09", "Anio": 2034, "Mes": 7, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.535714, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 1.3058, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 4.8772}, {"Fecha_Pago": "2034-07-09", "Anio": 2034, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.568182, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.4205, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 3.6932}, {"Fecha_Pago": "2035-01-09", "Anio": 2035, "Mes": 1, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.318182, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.7955, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 5.3409}, {"Fecha_Pago": "2035-01-09", "Anio": 2035, "Mes": 1, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.2, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.5, "Amortizacion_USD": 10.0, "Flujo_Total_USD": 10.5}, {"Fecha_Pago": "2035-01-09", "Anio": 2035, "Mes": 1, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.5, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 1.2188, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 4.7902}, {"Fecha_Pago": "2035-01-09", "Anio": 2035, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.545455, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.3636, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 3.6364}, {"Fecha_Pago": "2035-07-09", "Anio": 2035, "Mes": 7, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.272727, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.6818, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 5.2273}, {"Fecha_Pago": "2035-07-09", "Anio": 2035, "Mes": 7, "Bono": "AL35 / GD35", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.1, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.25, "Amortizacion_USD": 10.0, "Flujo_Total_USD": 10.25}, {"Fecha_Pago": "2035-07-09", "Anio": 2035, "Mes": 7, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.464286, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 1.1317, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 4.7031}, {"Fecha_Pago": "2035-07-09", "Anio": 2035, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.522727, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.3068, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 3.5795}, {"Fecha_Pago": "2036-01-09", "Anio": 2036, "Mes": 1, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.227273, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.5682, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 5.1136}, {"Fecha_Pago": "2036-01-09", "Anio": 2036, "Mes": 1, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.428571, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 1.0446, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 4.6161}, {"Fecha_Pago": "2036-01-09", "Anio": 2036, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.5, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.25, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 3.5227}, {"Fecha_Pago": "2036-07-09", "Anio": 2036, "Mes": 7, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.181818, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.4545, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 5.0}, {"Fecha_Pago": "2036-07-09", "Anio": 2036, "Mes": 7, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.392857, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 0.9576, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 4.529}, {"Fecha_Pago": "2036-07-09", "Anio": 2036, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.477273, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.1932, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 3.4659}, {"Fecha_Pago": "2037-01-09", "Anio": 2037, "Mes": 1, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.136364, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.3409, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 4.8864}, {"Fecha_Pago": "2037-01-09", "Anio": 2037, "Mes": 1, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.357143, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 0.8705, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 4.442}, {"Fecha_Pago": "2037-01-09", "Anio": 2037, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.454545, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.1364, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 3.4091}, {"Fecha_Pago": "2037-07-09", "Anio": 2037, "Mes": 7, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.090909, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.2273, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 4.7727}, {"Fecha_Pago": "2037-07-09", "Anio": 2037, "Mes": 7, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.321429, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 0.7835, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 4.3549}, {"Fecha_Pago": "2037-07-09", "Anio": 2037, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.431818, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.0795, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 3.3523}, {"Fecha_Pago": "2038-01-09", "Anio": 2038, "Mes": 1, "Bono": "AE38 / GD38", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.045455, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.1136, "Amortizacion_USD": 4.5455, "Flujo_Total_USD": 4.6591}, {"Fecha_Pago": "2038-01-09", "Anio": 2038, "Mes": 1, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.285714, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 0.6964, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 4.2679}, {"Fecha_Pago": "2038-01-09", "Anio": 2038, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.409091, "Tasa_Anual_Pct": 0.05, "Interes_USD": 1.0227, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 3.2955}, {"Fecha_Pago": "2038-07-09", "Anio": 2038, "Mes": 7, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.25, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 0.6094, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 4.1808}, {"Fecha_Pago": "2038-07-09", "Anio": 2038, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.386364, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.9659, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 3.2386}, {"Fecha_Pago": "2039-01-09", "Anio": 2039, "Mes": 1, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.214286, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 0.5223, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 4.0938}, {"Fecha_Pago": "2039-01-09", "Anio": 2039, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.363636, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.9091, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 3.1818}, {"Fecha_Pago": "2039-07-09", "Anio": 2039, "Mes": 7, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.178571, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 0.4353, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 4.0067}, {"Fecha_Pago": "2039-07-09", "Anio": 2039, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.340909, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.8523, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 3.125}, {"Fecha_Pago": "2040-01-09", "Anio": 2040, "Mes": 1, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.142857, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 0.3482, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 3.9196}, {"Fecha_Pago": "2040-01-09", "Anio": 2040, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.318182, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.7955, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 3.0682}, {"Fecha_Pago": "2040-07-09", "Anio": 2040, "Mes": 7, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.107143, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 0.2612, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 3.8326}, {"Fecha_Pago": "2040-07-09", "Anio": 2040, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.295455, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.7386, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 3.0114}, {"Fecha_Pago": "2041-01-09", "Anio": 2041, "Mes": 1, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.071429, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 0.1741, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 3.7455}, {"Fecha_Pago": "2041-01-09", "Anio": 2041, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.272727, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.6818, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 2.9545}, {"Fecha_Pago": "2041-07-09", "Anio": 2041, "Mes": 7, "Bono": "AL41 / GD41", "Tipo_Instrumento": "Bonar/Global", "Ley": "NY / Local", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.035714, "Tasa_Anual_Pct": 0.04875, "Interes_USD": 0.0871, "Amortizacion_USD": 3.5714, "Flujo_Total_USD": 3.6585}, {"Fecha_Pago": "2041-07-09", "Anio": 2041, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.25, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.625, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 2.8977}, {"Fecha_Pago": "2042-01-09", "Anio": 2042, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.227273, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.5682, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 2.8409}, {"Fecha_Pago": "2042-07-09", "Anio": 2042, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.204545, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.5114, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 2.7841}, {"Fecha_Pago": "2043-01-09", "Anio": 2043, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.181818, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.4545, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 2.7273}, {"Fecha_Pago": "2043-07-09", "Anio": 2043, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.159091, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.3977, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 2.6705}, {"Fecha_Pago": "2044-01-09", "Anio": 2044, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.136364, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.3409, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 2.6136}, {"Fecha_Pago": "2044-07-09", "Anio": 2044, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.113636, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.2841, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 2.5568}, {"Fecha_Pago": "2045-01-09", "Anio": 2045, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.090909, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.2273, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 2.5}, {"Fecha_Pago": "2045-07-09", "Anio": 2045, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.068182, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.1705, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 2.4432}, {"Fecha_Pago": "2046-01-09", "Anio": 2046, "Mes": 1, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.045455, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.1136, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 2.3864}, {"Fecha_Pago": "2046-07-09", "Anio": 2046, "Mes": 7, "Bono": "GD46", "Tipo_Instrumento": "Global", "Ley": "NY", "Moneda": "USD", "Estado": "Pendiente", "Residual_Inicio_Pct": 0.022727, "Tasa_Anual_Pct": 0.05, "Interes_USD": 0.0568, "Amortizacion_USD": 2.2727, "Flujo_Total_USD": 2.3295}];
   const BOND_META = {
-    'AL29 / GD29':          { venc: '09/07/2029', emisor: 'Tesoro',  tickers: ['AL29D','GD29D'] },
-    'AL30 / GD30':          { venc: '09/07/2030', emisor: 'Tesoro',  tickers: ['AL30D','GD30D'] },
-    'AL35 / GD35':          { venc: '09/07/2035', emisor: 'Tesoro',  tickers: ['AL35D','GD35D'] },
-    'AE38 / GD38':          { venc: '09/01/2038', emisor: 'Tesoro',  tickers: ['AE38D','GD38D'] },
-    'AL41 / GD41':          { venc: '09/07/2041', emisor: 'Tesoro',  tickers: ['AL41D','GD41D'] },
-    'GD46':                 { venc: '09/07/2046', emisor: 'Tesoro',  tickers: ['GD46D'] },
-    'AN29':                 { venc: '30/11/2029', emisor: 'Tesoro',  tickers: ['AN29D'] },
-    'AO27':                 { venc: '30/10/2027', emisor: 'Tesoro',  tickers: ['AO27D'] },
-    'AO28':                 { venc: '31/10/2028', emisor: 'Tesoro',  tickers: ['AO28D'] },
-    'BOPREAL Serie 1':      { venc: '31/10/2027', emisor: 'BCRA',    tickers: ['BPO27D'] },
-    'BPD7 (BOPREAL S.1-D)': { venc: '31/10/2027', emisor: 'BCRA',    tickers: ['BPD7D','BPOD7'] },
-    'BOPREAL Serie 3':      { venc: '31/05/2026', emisor: 'BCRA',    tickers: ['BPY26D','BPJ5D'] },
-    'BOPREAL Serie 4':      { venc: '31/10/2028', emisor: 'BCRA',    tickers: ['BPB7D','BPY28D'] }
+    'AL29 / GD29':          { venc: '09/07/2029', emisor: 'Tesoro',  tickers_usd: ['AL29D','GD29D'],  tickers_ars: ['AL29','GD29']  },
+    'AL30 / GD30':          { venc: '09/07/2030', emisor: 'Tesoro',  tickers_usd: ['AL30D','GD30D'],  tickers_ars: ['AL30','GD30']  },
+    'AL35 / GD35':          { venc: '09/07/2035', emisor: 'Tesoro',  tickers_usd: ['AL35D','GD35D'],  tickers_ars: ['AL35','GD35']  },
+    'AE38 / GD38':          { venc: '09/01/2038', emisor: 'Tesoro',  tickers_usd: ['AE38D','GD38D'],  tickers_ars: ['AE38','GD38']  },
+    'AL41 / GD41':          { venc: '09/07/2041', emisor: 'Tesoro',  tickers_usd: ['AL41D','GD41D'],  tickers_ars: ['AL41','GD41']  },
+    'GD46':                 { venc: '09/07/2046', emisor: 'Tesoro',  tickers_usd: ['GD46D'],          tickers_ars: ['GD46']         },
+    'AN29':                 { venc: '30/11/2029', emisor: 'Tesoro',  tickers_usd: ['AN29D'],          tickers_ars: ['AN29']         },
+    'AO27':                 { venc: '30/10/2027', emisor: 'Tesoro',  tickers_usd: ['AO27D'],          tickers_ars: ['AO27']         },
+    'AO28':                 { venc: '31/10/2028', emisor: 'Tesoro',  tickers_usd: ['AO28D'],          tickers_ars: ['AO28']         },
+    'BOPREAL Serie 1':      { venc: '31/10/2027', emisor: 'BCRA',    tickers_usd: ['BPO27D'],         tickers_ars: ['BPO27']        },
+    'BPD7 (BOPREAL S.1-D)': { venc: '31/10/2027', emisor: 'BCRA',    tickers_usd: ['BPD7D','BPOD7D'], tickers_ars: ['BPD7','BPOD7'] },
+    'BOPREAL Serie 3':      { venc: '31/05/2026', emisor: 'BCRA',    tickers_usd: ['BPY26D','BPJ5D'], tickers_ars: ['BPY26','BPJ5']  },
+    'BOPREAL Serie 4':      { venc: '31/10/2028', emisor: 'BCRA',    tickers_usd: ['BPB7D','BPY28D'], tickers_ars: ['BPB7','BPY28']  }
   };
   const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
   // ============ STATE ============
   let VIEW_MODE = 'unit';
-
-  // Filtros multi-select
-  const FILTERS = {
-    anio: new Set(),
-    mes: new Set(),
-    dia: new Set(),
-    bono: new Set()
-  };
-
-  // Precios de mercado (ticker -> price) y origen (live|manual)
-  let PRICES = {};       // { 'AL30D': { price: 63.97, source: 'live', ts: 1234 } }
+  const FILTERS = { anio: new Set(), mes: new Set(), dia: new Set(), bono: new Set() };
+  let PRICES = {};
   let PRICES_FETCHED_AT = null;
-
-  // Carteras múltiples: { id: { name, holdings: { bono: { vn, precio_manual? } } } }
   let PORTFOLIOS = {};
   let ACTIVE_PF = null;
+  let COSTS = { comision: 0.5, derechos: 0.045, iva: 21 };
 
   // ============ STORAGE ============
   function loadStorage() {
     try {
-      const raw = localStorage.getItem('bonos_ar_v3');
+      const raw = localStorage.getItem('bonos_ar_v4');
       if (raw) {
         const obj = JSON.parse(raw);
         PORTFOLIOS = obj.portfolios || {};
         ACTIVE_PF = obj.active || null;
         PRICES = obj.prices || {};
         PRICES_FETCHED_AT = obj.pricesFetchedAt || null;
+        COSTS = Object.assign(COSTS, obj.costs || {});
       }
     } catch (e) { console.warn('loadStorage error', e); }
 
-    // Migración desde la versión previa
+    // Migración v3 → v4
     if (Object.keys(PORTFOLIOS).length === 0) {
       try {
-        const oldRaw = localStorage.getItem('cartera_bonos_ar_v2') || localStorage.getItem('cartera_bonos_ar');
+        const oldRaw = localStorage.getItem('bonos_ar_v3');
         if (oldRaw) {
           const old = JSON.parse(oldRaw);
-          if (Object.keys(old).length > 0) {
-            const holdings = {};
-            Object.keys(old).forEach(k => { holdings[k] = { vn: old[k] }; });
-            const id = 'pf_' + Date.now();
-            PORTFOLIOS[id] = { name: 'Mi Cartera', holdings: holdings };
-            ACTIVE_PF = id;
-          }
+          PORTFOLIOS = old.portfolios || {};
+          ACTIVE_PF = old.active || null;
+          PRICES = old.prices || {};
+          PRICES_FETCHED_AT = old.pricesFetchedAt || null;
         }
       } catch (e) {}
     }
 
-    // Si no hay ninguna cartera, creo una por defecto
     if (Object.keys(PORTFOLIOS).length === 0) {
       const id = 'pf_' + Date.now();
       PORTFOLIOS[id] = { name: 'Cartera Principal', holdings: {} };
@@ -771,15 +919,24 @@
     if (!ACTIVE_PF || !PORTFOLIOS[ACTIVE_PF]) {
       ACTIVE_PF = Object.keys(PORTFOLIOS)[0];
     }
+
+    // Defaults de inputs de costos
+    setTimeout(() => {
+      document.getElementById('costComision').value = COSTS.comision;
+      document.getElementById('costDerechos').value = COSTS.derechos;
+      document.getElementById('costIva').value = COSTS.iva;
+      updateCostsSubtitle();
+    }, 0);
   }
 
   function saveStorage() {
     try {
-      localStorage.setItem('bonos_ar_v3', JSON.stringify({
+      localStorage.setItem('bonos_ar_v4', JSON.stringify({
         portfolios: PORTFOLIOS,
         active: ACTIVE_PF,
         prices: PRICES,
-        pricesFetchedAt: PRICES_FETCHED_AT
+        pricesFetchedAt: PRICES_FETCHED_AT,
+        costs: COSTS
       }));
     } catch (e) { console.warn('saveStorage error', e); }
   }
@@ -787,12 +944,28 @@
   function currentPF() { return PORTFOLIOS[ACTIVE_PF]; }
   function holdings() { return currentPF().holdings; }
 
-  // ============ UTILITIES ============
+  // Migrar estructura vieja de holding (solo vn) a nueva (vn, currency, precio_manual)
+  function normalizeHolding(h) {
+    if (!h) return { vn: 0, currency: 'USD' };
+    if (typeof h === 'number') return { vn: h, currency: 'USD' };
+    return {
+      vn: h.vn || 0,
+      currency: h.currency || 'USD',
+      precio_manual_usd: h.precio_manual_usd ?? h.precio_manual,
+      precio_manual_ars: h.precio_manual_ars
+    };
+  }
+
+  // ============ UTILS ============
   const fmt = (n, dec=2) => {
     if (n === 0 || n === undefined || n === null) return '–';
     return Number(n).toLocaleString('es-AR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
   };
-  const fmtUSD = (n, dec=2) => (n === undefined || n === null || Math.abs(n) < 0.00001 ? '–' : '$' + fmt(n, dec));
+  const fmtMoney = (n, curr='USD', dec=2) => {
+    if (n === undefined || n === null || Math.abs(n) < 0.00001) return '–';
+    const sym = curr === 'ARS' ? '$' : 'US$';
+    return sym + ' ' + fmt(n, dec);
+  };
   const fmtUSD0 = (n) => (!n ? '–' : '$' + n.toLocaleString('es-AR', { maximumFractionDigits: 0 }));
   const fmtPct = (n) => (n*100).toFixed(2) + '%';
   const fmtPct3 = (n) => (n*100).toFixed(3) + '%';
@@ -801,14 +974,31 @@
     const d = parseISO(s);
     return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function capitalize(s) { return s[0].toUpperCase() + s.slice(1); }
 
-  // Para un bono, obtener precio promedio entre sus tickers (toma el primero que exista)
-  function bondPrice(bono) {
+  // Obtener precio para un bono en una moneda específica
+  function bondPriceForCurrency(bono, currency) {
     const meta = BOND_META[bono];
     if (!meta) return null;
-    for (const t of meta.tickers) {
+    const tickers = currency === 'ARS' ? meta.tickers_ars : meta.tickers_usd;
+    for (const t of tickers) {
       if (PRICES[t]) return PRICES[t];
     }
+    return null;
+  }
+
+  // Precio efectivo a usar (manual > mercado)
+  function effectivePrice(bono, currency) {
+    const h = normalizeHolding(holdings()[bono]);
+    const manualKey = currency === 'ARS' ? 'precio_manual_ars' : 'precio_manual_usd';
+    if (h[manualKey] != null && h[manualKey] > 0) {
+      return { price: h[manualKey], source: 'manual' };
+    }
+    const mkt = bondPriceForCurrency(bono, currency);
+    if (mkt) return mkt;
     return null;
   }
 
@@ -823,54 +1013,50 @@
     pricesInfo.innerHTML = '';
 
     try {
-      // data912.com retorna array de {symbol, c (close), q_op, q_bid, q_ask, v, px_ask, px_bid, ...}
       const endpoints = [
-        'https://data912.com/live/arg_bonds',
-        'https://data912.com/live/arg_notes'
+        { url: 'https://data912.com/live/arg_bonds', tag: 'ARS' },
+        { url: 'https://data912.com/live/arg_notes', tag: 'USD' }
       ];
 
       const newPrices = {};
       let anyOk = false;
 
-      for (const url of endpoints) {
+      for (const ep of endpoints) {
         try {
-          const r = await fetch(url, { mode: 'cors' });
-          if (!r.ok) { console.warn('Endpoint', url, 'respondió', r.status); continue; }
+          const r = await fetch(ep.url, { mode: 'cors' });
+          if (!r.ok) { console.warn('Endpoint', ep.url, 'respondió', r.status); continue; }
           const arr = await r.json();
           if (!Array.isArray(arr)) continue;
           anyOk = true;
           arr.forEach(item => {
             const sym = item.symbol || item.ticker || item.s;
-            const price = item.c || item.close || item.last || item.px;
-            if (sym && price && Number.isFinite(Number(price))) {
-              newPrices[sym] = { price: Number(price), source: 'live', ts: Date.now() };
+            const price = item.c ?? item.close ?? item.last ?? item.px;
+            if (sym && price != null && Number.isFinite(Number(price))) {
+              newPrices[sym] = { price: Number(price), source: 'live', ts: Date.now(), market: ep.tag };
             }
           });
         } catch (err) {
-          console.warn('Error fetching', url, err);
+          console.warn('Error fetching', ep.url, err);
         }
       }
 
       if (!anyOk) throw new Error('No se pudo conectar con la API');
 
-      // Mergear preservando precios manuales
+      // Preservar manuales que no estén en la respuesta nueva
       Object.keys(PRICES).forEach(k => {
         if (PRICES[k].source === 'manual' && !newPrices[k]) {
-          newPrices[k] = PRICES[k];  // preservar manuales
+          newPrices[k] = PRICES[k];
         }
       });
-      // Pero si hay live para un ticker que antes era manual, preguntar? Por simplicidad: live prevalece
       PRICES = { ...PRICES, ...newPrices };
       PRICES_FETCHED_AT = Date.now();
       saveStorage();
 
       statusDot.className = 'status-dot live';
       const liveCount = Object.values(PRICES).filter(p => p.source === 'live').length;
-      const manualCount = Object.values(PRICES).filter(p => p.source === 'manual').length;
       statusText.textContent = `Precios en vivo (${liveCount})`;
-      pricesInfo.innerHTML = `<strong>Última actualización:</strong> ${new Date(PRICES_FETCHED_AT).toLocaleTimeString('es-AR')} · Fuente: data912.com · ${manualCount > 0 ? manualCount + ' manuales' : 'Click en cualquier precio para editarlo manualmente'}`;
+      pricesInfo.innerHTML = `<strong>Última actualización:</strong> ${new Date(PRICES_FETCHED_AT).toLocaleTimeString('es-AR')} · Fuente: data912.com`;
 
-      // Re-render para que se muestren en las cards
       renderPortfolioInputs();
       render();
 
@@ -878,8 +1064,37 @@
       console.error(err);
       statusDot.className = 'status-dot error';
       statusText.textContent = 'Sin conexión a la API';
-      pricesInfo.innerHTML = `<strong>No se pudo conectar:</strong> probablemente es un bloqueo CORS del navegador. <em>Podés ingresar los precios manualmente en cada bono</em>, se guardan automáticamente.`;
+      pricesInfo.innerHTML = `<strong>No se pudo conectar:</strong> posible bloqueo CORS del navegador. <em>Ingresá precios manualmente en cada bono</em>, se guardan automáticamente.`;
     }
+  }
+
+  // ============ COSTS ============
+  function updateCostsSubtitle() {
+    const t = `Broker ${COSTS.comision}% + Derechos ${COSTS.derechos}% + IVA ${COSTS.iva}%`;
+    document.getElementById('costsSubtitle').textContent = t;
+  }
+
+  function wireCosts() {
+    const map = { costComision: 'comision', costDerechos: 'derechos', costIva: 'iva' };
+    Object.keys(map).forEach(id => {
+      const el = document.getElementById(id);
+      el.addEventListener('input', (e) => {
+        const v = parseFloat(e.target.value);
+        COSTS[map[id]] = Number.isFinite(v) ? v : 0;
+        saveStorage();
+        updateCostsSubtitle();
+      });
+    });
+  }
+
+  // Calcular costos totales sobre un monto de compra
+  function calcCosts(monto) {
+    const comision = monto * COSTS.comision / 100;
+    const derechos = monto * COSTS.derechos / 100;
+    const ivaBase = comision + derechos;  // IVA sobre comisión + derechos
+    const iva = ivaBase * COSTS.iva / 100;
+    const total = comision + derechos + iva;
+    return { comision, derechos, iva, total, neto: monto + total };
   }
 
   // ============ PORTFOLIO TABS ============
@@ -925,10 +1140,6 @@
     });
   }
 
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  }
-
   // ============ PORTFOLIO INPUTS ============
   function renderPortfolioInputs() {
     const pf = currentPF();
@@ -940,9 +1151,7 @@
 
     const container = document.getElementById('portfolioSections');
     const grupos = { 'Tesoro': [], 'BCRA': [] };
-    Object.keys(BOND_META).forEach(b => {
-      grupos[BOND_META[b].emisor].push(b);
-    });
+    Object.keys(BOND_META).forEach(b => { grupos[BOND_META[b].emisor].push(b); });
 
     let html = '';
     const titulos = { 'Tesoro': 'Bonos del Tesoro (Bonares y Globales)', 'BCRA': 'BOPREAL (BCRA)' };
@@ -952,70 +1161,111 @@
         <div class="portfolio-section-title">${titulos[emisor]}</div>
         <div class="portfolio-inputs">`;
       grupos[emisor].forEach(b => {
-        const h = pf.holdings[b] || {};
+        const h = normalizeHolding(pf.holdings[b]);
+        const currency = h.currency || 'USD';
         const vn = h.vn || 0;
-        const precioManual = h.precio_manual;
-        const precioMercado = bondPrice(b);
+
+        const manualKey = currency === 'ARS' ? 'precio_manual_ars' : 'precio_manual_usd';
+        const precioManual = h[manualKey];
+        const precioMercado = bondPriceForCurrency(b, currency);
         const precioFinal = precioManual != null ? precioManual : (precioMercado ? precioMercado.price : null);
         const precioSource = precioManual != null ? 'manual' : (precioMercado ? 'live' : null);
         const hasVal = vn > 0 ? 'has-value' : '';
 
         let priceLabel = '';
+        const symbol = currency === 'ARS' ? '$' : 'US$';
         if (precioFinal != null) {
           const icon = precioSource === 'manual' ? '✎' : '●';
-          priceLabel = `<span class="bond-input-price ${precioSource}">${icon} Precio: $${precioFinal.toFixed(2)} ${precioSource === 'live' ? '(mercado)' : '(manual)'}</span>`;
+          priceLabel = `<div class="bond-input-price ${precioSource}">${icon} Precio: ${symbol}${precioFinal.toFixed(2)} ${precioSource === 'live' ? '(mercado)' : '(manual)'}</div>`;
         } else {
-          priceLabel = `<span class="bond-input-price">Sin precio cargado</span>`;
+          priceLabel = `<div class="bond-input-price">Sin precio ${currency} · ingresá manualmente</div>`;
         }
 
         html += `
-          <div class="bond-input ${hasVal}" data-bono="${b}">
+          <div class="bond-input ${hasVal}" data-bono="${b}" data-open-modal>
             <div class="bond-input-header">
               <span class="bond-input-name">${b}</span>
-              <span class="bond-input-venc">${BOND_META[b].venc}</span>
+              <div class="bond-currency-toggle" data-nomodal>
+                <button type="button" class="${currency === 'USD' ? 'active' : ''}" data-currency-btn="USD" data-bono="${b}">USD</button>
+                <button type="button" class="${currency === 'ARS' ? 'active' : ''}" data-currency-btn="ARS" data-bono="${b}">ARS</button>
+              </div>
             </div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-faint); margin-bottom: 4px;">Vto ${BOND_META[b].venc}</div>
             ${priceLabel}
-            <div class="bond-input-row" style="margin-bottom: 4px;">
+            <div class="bond-input-row" style="margin-bottom: 4px;" data-nomodal>
               <span class="prefix">VN</span>
               <input type="number" class="vn-input" data-bono="${b}" data-field="vn"
                      value="${vn || ''}" placeholder="0" min="0" step="100">
             </div>
-            <div class="bond-input-row">
-              <span class="prefix">$</span>
-              <input type="number" class="price-input" data-bono="${b}" data-field="precio_manual"
+            <div class="bond-input-row" data-nomodal>
+              <span class="prefix">${symbol}</span>
+              <input type="number" class="price-input" data-bono="${b}" data-field="${manualKey}"
                      value="${precioManual != null ? precioManual : ''}" placeholder="${precioMercado ? precioMercado.price.toFixed(2) : 'precio c/100 VN'}" min="0" step="0.01">
             </div>
+            <div class="bond-input-open-hint">→ ver calc</div>
           </div>`;
       });
       html += `</div></div>`;
     });
     container.innerHTML = html;
 
+    // Wire inputs de VN y precio
     container.querySelectorAll('.vn-input, .price-input').forEach(inp => {
       inp.addEventListener('input', (e) => {
         const bono = e.target.dataset.bono;
         const field = e.target.dataset.field;
         const val = parseFloat(e.target.value);
         const pf = currentPF();
-        if (!pf.holdings[bono]) pf.holdings[bono] = {};
+        if (!pf.holdings[bono] || typeof pf.holdings[bono] === 'number') {
+          pf.holdings[bono] = normalizeHolding(pf.holdings[bono]);
+        }
         if (Number.isFinite(val) && val > 0) {
           pf.holdings[bono][field] = val;
         } else {
           delete pf.holdings[bono][field];
         }
-        // Si ambos campos están vacíos, borrar el holding
-        if (!pf.holdings[bono].vn && pf.holdings[bono].precio_manual == null) {
+        // Si queda vacío completamente, eliminar
+        const h = pf.holdings[bono];
+        if (!h.vn && h.precio_manual_usd == null && h.precio_manual_ars == null) {
           delete pf.holdings[bono];
         }
         saveStorage();
         updateCarteraTotal();
         if (VIEW_MODE === 'portfolio') render();
       });
+      // Re-render completo al salir para refrescar el label de precio si cambió
+      inp.addEventListener('blur', () => renderPortfolioInputs());
     });
 
-    // Al salir del foco, re-renderizar solo si cambió el precio (para refrescar etiqueta)
-    container.querySelectorAll('.price-input').forEach(inp => {
-      inp.addEventListener('blur', () => renderPortfolioInputs());
+    // Wire toggle de moneda
+    container.querySelectorAll('[data-currency-btn]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const bono = btn.dataset.bono;
+        const newCurr = btn.dataset.currencyBtn;
+        const pf = currentPF();
+        pf.holdings[bono] = normalizeHolding(pf.holdings[bono]);
+        pf.holdings[bono].currency = newCurr;
+        // Si el holding solo tenía currency y nada más, limpiarlo
+        const h = pf.holdings[bono];
+        if (!h.vn && h.precio_manual_usd == null && h.precio_manual_ars == null) {
+          h.currency = newCurr; // mantener selección aunque no haya VN
+        }
+        saveStorage();
+        renderPortfolioInputs();
+        if (VIEW_MODE === 'portfolio') render();
+      });
+    });
+
+    // Wire click en card (abrir modal), pero NO si es en un input/toggle
+    container.querySelectorAll('[data-open-modal]').forEach(card => {
+      card.addEventListener('click', (e) => {
+        // No abrir modal si clic fue en input, boton o data-nomodal
+        if (e.target.closest('[data-nomodal]')) return;
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+        const bono = card.dataset.bono;
+        openBondModal(bono);
+      });
     });
 
     updateCarteraTotal();
@@ -1023,29 +1273,25 @@
 
   function updateCarteraTotal() {
     const pf = currentPF();
-    const totalVN = Object.values(pf.holdings).reduce((a, h) => a + (h.vn || 0), 0);
+    const totalVN = Object.values(pf.holdings).reduce((a, h) => a + (normalizeHolding(h).vn || 0), 0);
     document.getElementById('carteraTotal').textContent = 'USD ' + totalVN.toLocaleString('es-AR', { maximumFractionDigits: 0 });
 
-    // Valor invertido = sum(VN * precio/100)
-    let invested = 0;
-    let anyPrice = false;
+    let investedUsd = 0, investedArs = 0;
     Object.keys(pf.holdings).forEach(b => {
-      const h = pf.holdings[b];
+      const h = normalizeHolding(pf.holdings[b]);
       if (!h.vn) return;
-      const precioManual = h.precio_manual;
-      const precioMercado = bondPrice(b);
-      const precio = precioManual != null ? precioManual : (precioMercado ? precioMercado.price : null);
-      if (precio != null) {
-        invested += h.vn * precio / 100;
-        anyPrice = true;
-      }
+      const precio = effectivePrice(b, h.currency);
+      if (precio == null) return;
+      const monto = h.vn * precio.price / 100;
+      if (h.currency === 'ARS') investedArs += monto;
+      else investedUsd += monto;
     });
+
+    const parts = [];
+    if (investedUsd > 0) parts.push('US$ ' + investedUsd.toLocaleString('es-AR', { maximumFractionDigits: 0 }));
+    if (investedArs > 0) parts.push('$ ' + investedArs.toLocaleString('es-AR', { maximumFractionDigits: 0 }));
     const invEl = document.getElementById('carteraInv');
-    if (anyPrice && invested > 0) {
-      invEl.textContent = 'Invertido ≈ USD ' + invested.toLocaleString('es-AR', { maximumFractionDigits: 0 });
-    } else {
-      invEl.textContent = '';
-    }
+    invEl.textContent = parts.length ? 'Invertido ≈ ' + parts.join(' + ') : '';
   }
 
   // ============ MULTISELECT FILTERS ============
@@ -1063,7 +1309,6 @@
   function updateMultiselectUI(key) {
     const el = document.querySelector(`.multiselect[data-filter="${key}"]`);
     const placeholder = el.querySelector('.multiselect-placeholder');
-    // Limpiar chips anteriores
     el.querySelectorAll('.multiselect-chip').forEach(c => c.remove());
 
     const selected = FILTERS[key];
@@ -1074,26 +1319,19 @@
       placeholder.textContent = 'Todos';
     } else {
       placeholder.style.display = 'none';
-      // Añadir chips
       const dropdown = el.querySelector('.multiselect-dropdown');
       const chips = [...selected].map(v => {
         const opt = opts.find(o => o.value === v);
         return `<span class="multiselect-chip">${escapeHtml(opt?.label || v)}<span class="x" data-ms-remove="${escapeHtml(v)}">×</span></span>`;
       }).join('');
       dropdown.insertAdjacentHTML('beforebegin', chips);
-      // Como insertAdjacentHTML fuera del span lo pone antes del dropdown, lo movemos adentro
-      // En realidad ya está bien porque chips vienen como hermanos del placeholder
-      // Pero el método anterior los pone antes de dropdown, así que:
-      // Re-pegar chips dentro del multiselect (antes del dropdown)
     }
 
-    // Badge con count
     const badge = document.getElementById('badge' + capitalize(key));
     if (badge) {
       badge.innerHTML = selected.size > 0 ? `<span class="filter-label-badge">${selected.size}</span>` : '';
     }
 
-    // Wire remove chips
     el.querySelectorAll('[data-ms-remove]').forEach(x => {
       x.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1104,8 +1342,6 @@
       });
     });
   }
-
-  function capitalize(s) { return s[0].toUpperCase() + s.slice(1); }
 
   function buildMultiselectDropdown(key) {
     const el = document.querySelector(`.multiselect[data-filter="${key}"]`);
@@ -1126,7 +1362,6 @@
       `).join('')}
     `;
 
-    // Wire opciones
     dropdown.querySelectorAll('.ms-option').forEach(opt => {
       opt.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1137,7 +1372,7 @@
           if (FILTERS[key].has(v)) FILTERS[key].delete(v);
           else FILTERS[key].add(v);
         }
-        buildMultiselectDropdown(key);  // refresh checkboxes
+        buildMultiselectDropdown(key);
         updateMultiselectUI(key);
         render();
       });
@@ -1151,11 +1386,9 @@
 
       const el = document.querySelector(`.multiselect[data-filter="${key}"]`);
       el.addEventListener('click', (e) => {
-        // No abrir si clic en chip/x
         if (e.target.classList.contains('x') || e.target.classList.contains('multiselect-chip')) return;
         const dropdown = el.querySelector('.multiselect-dropdown');
         const alreadyOpen = dropdown.classList.contains('open');
-        // Cerrar todos
         document.querySelectorAll('.multiselect-dropdown.open').forEach(d => d.classList.remove('open'));
         document.querySelectorAll('.multiselect.open').forEach(m => m.classList.remove('open'));
         if (!alreadyOpen) {
@@ -1178,15 +1411,12 @@
   Chart.defaults.borderColor = '#232937';
   Chart.defaults.font.family = "'Manrope', sans-serif";
   Chart.defaults.font.size = 11;
-
   const gridOpts = { color: '#1a1f2b', drawBorder: false };
   const COLORS = { int: '#5aa4e8', amort: '#5fc387', total: '#f5b942' };
-
   let chartTimeline, chartMonthly, chartBonds;
 
   function createCharts() {
-    const ctxT = document.getElementById('chartTimeline').getContext('2d');
-    chartTimeline = new Chart(ctxT, {
+    chartTimeline = new Chart(document.getElementById('chartTimeline').getContext('2d'), {
       type: 'bar',
       data: { labels: [], datasets: [
         { label: 'Interés', data: [], backgroundColor: COLORS.int, stack: 'a', borderRadius: 3 },
@@ -1194,14 +1424,9 @@
       ]},
       options: {
         responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            backgroundColor: '#141821', borderColor: '#2f3747', borderWidth: 1,
-            padding: 12, titleColor: '#e6e9ef', bodyColor: '#e6e9ef',
-            callbacks: { label: (ctx) => ctx.dataset.label + ': $' + fmt(ctx.parsed.y, 2) }
-          }
-        },
+        plugins: { legend: { display: false },
+          tooltip: { backgroundColor: '#141821', borderColor: '#2f3747', borderWidth: 1, padding: 12,
+            callbacks: { label: (ctx) => ctx.dataset.label + ': $' + fmt(ctx.parsed.y, 2) } } },
         scales: {
           x: { grid: gridOpts, ticks: { maxRotation: 45, minRotation: 45 }, stacked: true },
           y: { grid: gridOpts, stacked: true, ticks: { callback: v => '$' + v.toLocaleString('es-AR', { maximumFractionDigits: 0 }) } }
@@ -1209,8 +1434,7 @@
       }
     });
 
-    const ctxM = document.getElementById('chartMonthly').getContext('2d');
-    chartMonthly = new Chart(ctxM, {
+    chartMonthly = new Chart(document.getElementById('chartMonthly').getContext('2d'), {
       type: 'bar',
       data: { labels: [], datasets: [{ label: 'Flujo', data: [], backgroundColor: COLORS.total, borderRadius: 3 }]},
       options: {
@@ -1225,8 +1449,7 @@
       }
     });
 
-    const ctxB = document.getElementById('chartBonds').getContext('2d');
-    chartBonds = new Chart(ctxB, {
+    chartBonds = new Chart(document.getElementById('chartBonds').getContext('2d'), {
       type: 'bar',
       data: { labels: [], datasets: [
         { label: 'Interés', data: [], backgroundColor: COLORS.int, stack: 'a' },
@@ -1246,14 +1469,14 @@
     });
   }
 
-  // ============ CORE FILTERING + SCALING ============
+  // ============ FILTERING + SCALING ============
   function scaleRow(r) {
     const hs = holdings();
-    const h = hs[r.Bono];
-    const vn = h ? (h.vn || 0) : 0;
+    const h = normalizeHolding(hs[r.Bono]);
+    const vn = h.vn || 0;
     const factor = VIEW_MODE === 'portfolio' ? vn / 100 : 1;
     return {
-      ...r, vn: vn,
+      ...r, vn: vn, currency: h.currency || 'USD',
       interes_calc: r.Interes_USD * factor,
       amort_calc: r.Amortizacion_USD * factor,
       flujo_calc: r.Flujo_Total_USD * factor,
@@ -1291,8 +1514,8 @@
     if (isPortfolio) {
       banner.classList.add('visible');
       const pf = currentPF();
-      const totalVN = Object.values(pf.holdings).reduce((a, h) => a + (h.vn || 0), 0);
-      const bonosEn = Object.keys(pf.holdings).filter(k => pf.holdings[k].vn > 0).length;
+      const totalVN = Object.values(pf.holdings).reduce((a, h) => a + (normalizeHolding(h).vn || 0), 0);
+      const bonosEn = Object.keys(pf.holdings).filter(k => normalizeHolding(pf.holdings[k]).vn > 0).length;
       document.getElementById('modeBannerText').textContent =
         `Modo CARTERA · ${pf.name} · ${bonosEn} bonos · VN total USD ${totalVN.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
     } else {
@@ -1307,7 +1530,7 @@
     const totAmort = rows.reduce((a,r) => a + r.amort_calc, 0);
     const tot = totInt + totAmort;
 
-    const bonosEnCartera = Object.keys(holdings()).filter(k => holdings()[k].vn > 0).length;
+    const bonosEnCartera = Object.keys(holdings()).filter(k => normalizeHolding(holdings()[k]).vn > 0).length;
     if (isPortfolio && bonosEnCartera === 0) {
       document.getElementById('kpiTotal').textContent = '$0';
       document.getElementById('kpiInt').textContent = '$0';
@@ -1321,7 +1544,6 @@
       document.getElementById('kpiInt').textContent = '$' + fmt(totInt, 2);
       document.getElementById('kpiAmort').textContent = '$' + fmt(totAmort, 2);
       document.getElementById('kpiCount').textContent = rows.length;
-
       const pctInt = tot > 0 ? (totInt/tot*100).toFixed(1) : '0';
       const pctAmort = tot > 0 ? (totAmort/tot*100).toFixed(1) : '0';
       document.getElementById('kpiIntSub').textContent = `${pctInt}% del flujo`;
@@ -1414,9 +1636,9 @@
               <td class="num">${fmtUSD0(r.vn)}</td>
               <td>${r.Ley}</td>
               <td><span class="badge ${r.Estado === 'Pendiente' ? 'pending' : 'paid'}">${r.Estado}</span></td>
-              <td class="num">${fmtUSD(r.interes_calc, 2)}</td>
-              <td class="num">${fmtUSD(r.amort_calc, 2)}</td>
-              <td class="num highlight">${fmtUSD(r.flujo_calc, 2)}</td>
+              <td class="num">${fmtMoney(r.interes_calc, 'USD', 2)}</td>
+              <td class="num">${fmtMoney(r.amort_calc, 'USD', 2)}</td>
+              <td class="num highlight">${fmtMoney(r.flujo_calc, 'USD', 2)}</td>
             </tr>`;
         } else {
           return `
@@ -1428,9 +1650,9 @@
               <td><span class="badge ${r.Estado === 'Pendiente' ? 'pending' : 'paid'}">${r.Estado}</span></td>
               <td class="num">${fmtPct(r.Residual_Inicio_Pct)}</td>
               <td class="num">${fmtPct3(r.Tasa_Anual_Pct)}</td>
-              <td class="num">${fmtUSD(r.Interes_USD, 4)}</td>
-              <td class="num">${fmtUSD(r.Amortizacion_USD, 4)}</td>
-              <td class="num highlight">${fmtUSD(r.Flujo_Total_USD, 4)}</td>
+              <td class="num">${fmtMoney(r.Interes_USD, 'USD', 4)}</td>
+              <td class="num">${fmtMoney(r.Amortizacion_USD, 'USD', 4)}</td>
+              <td class="num highlight">${fmtMoney(r.Flujo_Total_USD, 'USD', 4)}</td>
             </tr>`;
         }
       }).join('');
@@ -1441,6 +1663,243 @@
       isPortfolio
         ? `${rows.length} pagos · ${bonosUnicos} bonos en cartera · Total a cobrar $${fmt(tot, 2)} USD`
         : `${rows.length} pagos · ${bonosUnicos} bonos · Flujo $${fmt(tot, 2)} USD cada VN 100`;
+  }
+
+  // ============ BOND MODAL (calculadora por bono) ============
+  function openBondModal(bono) {
+    const h = normalizeHolding(holdings()[bono]);
+    const currency = h.currency || 'USD';
+    const vn = h.vn || 0;
+    const precio = effectivePrice(bono, currency);
+    const precioValue = precio ? precio.price : 0;
+
+    // Flujos pendientes del bono (en USD, cada 100 VN)
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const flujosBono = DATA.filter(r => r.Bono === bono && r.Estado === 'Pendiente');
+
+    // Escalado al VN real del usuario
+    const factor = vn > 0 ? vn / 100 : 0;
+    const flujosEscalados = flujosBono.map(r => ({
+      ...r,
+      interes_esc: r.Interes_USD * factor,
+      amort_esc: r.Amortizacion_USD * factor,
+      flujo_esc: r.Flujo_Total_USD * factor
+    }));
+
+    // Totales brutos
+    const totalInteres = flujosEscalados.reduce((a,r) => a + r.interes_esc, 0);
+    const totalAmort = flujosEscalados.reduce((a,r) => a + r.amort_esc, 0);
+    const totalCobrar = totalInteres + totalAmort;
+
+    // Costo de compra = VN * precio / 100 (en la moneda seleccionada)
+    const montoCompraBruto = vn * precioValue / 100;
+    const costos = calcCosts(montoCompraBruto);
+    const montoTotalPagado = montoCompraBruto + costos.total;
+
+    // Para comparar con flujos (que están en USD), convertimos si la compra fue en ARS
+    // Usamos el ratio implícito precio USD / precio ARS si ambos existen
+    const precioUsd = effectivePrice(bono, 'USD');
+    const precioArs = effectivePrice(bono, 'ARS');
+    const implicitFX = (precioUsd && precioArs && precioUsd.price > 0) ? (precioArs.price / precioUsd.price) : null;
+
+    // Monto pagado expresado en USD (para comparar con flujos)
+    let montoPagadoUsd = null;
+    if (currency === 'USD') {
+      montoPagadoUsd = montoTotalPagado;
+    } else if (currency === 'ARS' && implicitFX) {
+      montoPagadoUsd = montoTotalPagado / implicitFX;
+    }
+
+    const gananciaBruta = montoPagadoUsd != null ? totalCobrar - montoPagadoUsd : null;
+    const gananciaPct = (montoPagadoUsd != null && montoPagadoUsd > 0) ? (gananciaBruta / montoPagadoUsd) : null;
+
+    // TIR neta: calcular IRR con flujos en USD vs monto pagado en USD
+    let tirAnual = null;
+    if (montoPagadoUsd != null && montoPagadoUsd > 0 && flujosEscalados.length > 0) {
+      tirAnual = calcIRR(-montoPagadoUsd, flujosEscalados, today);
+    }
+
+    // Render modal content
+    const sym = currency === 'ARS' ? '$' : 'US$';
+    const html = `
+      <div class="bond-modal-header">
+        <div>
+          <div class="bond-modal-title">${escapeHtml(bono)}</div>
+          <div class="bond-modal-subtitle">
+            Vencimiento ${BOND_META[bono].venc}
+            <span class="badge ${currency === 'ARS' ? 'ars' : 'usd'}" style="margin-left:8px">${currency}</span>
+            ${precio ? `<span style="color:var(--text-dim); margin-left:8px">Precio: ${sym}${precio.price.toFixed(2)} (${precio.source})</span>` : ''}
+          </div>
+        </div>
+        <button class="bond-modal-close" id="closeBondModal">×</button>
+      </div>
+
+      ${vn === 0 ? `
+        <div class="empty-state" style="padding: 30px;">
+          <h3>Cargá un VN para ver la calculadora</h3>
+          <div>Ingresá el valor nominal que pensás comprar en la card del bono.</div>
+        </div>
+      ` : !precio ? `
+        <div class="empty-state" style="padding: 30px;">
+          <h3>Sin precio cargado</h3>
+          <div>Ingresá un precio manual o actualizá los precios de mercado para calcular la inversión.</div>
+        </div>
+      ` : `
+        <div class="bond-modal-kpis">
+          <div class="bond-modal-kpi">
+            <div class="bond-modal-kpi-label">Invertido (${currency})</div>
+            <div class="bond-modal-kpi-value">${fmtMoney(montoTotalPagado, currency)}</div>
+            <div class="bond-modal-kpi-sub">VN ${sym}${vn.toLocaleString('es-AR')} × ${precio.price.toFixed(2)}/100 + costos</div>
+          </div>
+          <div class="bond-modal-kpi accent">
+            <div class="bond-modal-kpi-label">Total a Cobrar</div>
+            <div class="bond-modal-kpi-value">US$ ${fmt(totalCobrar, 2)}</div>
+            <div class="bond-modal-kpi-sub">${flujosEscalados.length} pagos pendientes</div>
+          </div>
+          <div class="bond-modal-kpi ${gananciaBruta != null && gananciaBruta >= 0 ? 'positive' : 'negative'}">
+            <div class="bond-modal-kpi-label">Ganancia Bruta</div>
+            <div class="bond-modal-kpi-value">${montoPagadoUsd != null ? 'US$ ' + fmt(gananciaBruta, 2) : '—'}</div>
+            <div class="bond-modal-kpi-sub">${gananciaPct != null ? (gananciaPct >= 0 ? '+' : '') + (gananciaPct*100).toFixed(1) + '% sobre inversión' : currency === 'ARS' ? 'Requiere FX implícito' : '—'}</div>
+          </div>
+          <div class="bond-modal-kpi ${tirAnual != null && tirAnual >= 0 ? 'positive' : (tirAnual != null ? 'negative' : '')}">
+            <div class="bond-modal-kpi-label">TIR Neta Anual (USD)</div>
+            <div class="bond-modal-kpi-value">${tirAnual != null ? (tirAnual*100).toFixed(2) + '%' : '—'}</div>
+            <div class="bond-modal-kpi-sub">${tirAnual != null ? 'después de costos' : 'No calculable'}</div>
+          </div>
+        </div>
+
+        <div class="breakdown-section">
+          <h4>Desglose del costo de compra <span class="sub">VN ${sym}${vn.toLocaleString('es-AR')} @ ${precio.price.toFixed(2)}/100</span></h4>
+          <div class="breakdown-row">
+            <span class="label-dim">Monto bruto de compra</span>
+            <span class="val">${fmtMoney(montoCompraBruto, currency)}</span>
+          </div>
+          <div class="breakdown-row">
+            <span class="label-dim">Comisión broker (${COSTS.comision}%)</span>
+            <span class="val">${fmtMoney(costos.comision, currency)}</span>
+          </div>
+          <div class="breakdown-row">
+            <span class="label-dim">Derechos de mercado (${COSTS.derechos}%)</span>
+            <span class="val">${fmtMoney(costos.derechos, currency)}</span>
+          </div>
+          <div class="breakdown-row">
+            <span class="label-dim">IVA (${COSTS.iva}% sobre comisión + derechos)</span>
+            <span class="val">${fmtMoney(costos.iva, currency)}</span>
+          </div>
+          <div class="breakdown-row total">
+            <span>TOTAL A PAGAR</span>
+            <span class="val">${fmtMoney(montoTotalPagado, currency)}</span>
+          </div>
+        </div>
+
+        ${currency === 'ARS' ? `
+          <div class="breakdown-section" style="border-color: rgba(184,142,232,0.3);">
+            <h4 style="color: var(--purple)">Conversión a USD <span class="sub">para comparar con flujos</span></h4>
+            ${implicitFX ? `
+              <div class="breakdown-row">
+                <span class="label-dim">Tipo de cambio implícito (ARS/USD)</span>
+                <span class="val">$ ${implicitFX.toFixed(2)}</span>
+              </div>
+              <div class="breakdown-row">
+                <span class="label-dim">Invertido en USD</span>
+                <span class="val">US$ ${fmt(montoPagadoUsd, 2)}</span>
+              </div>
+            ` : `
+              <div style="color: var(--text-dim); font-size: 12px; padding: 8px 0;">
+                No hay precio USD disponible para calcular el tipo de cambio implícito.
+                La TIR y ganancia en dólares no pueden calcularse.
+              </div>
+            `}
+          </div>
+        ` : ''}
+
+        <div class="breakdown-section">
+          <h4>Calendario de pagos (post-hoy) <span class="sub">Escalado a VN ${vn.toLocaleString('es-AR')}</span></h4>
+          <div class="modal-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th style="text-align:right">Interés USD</th>
+                  <th style="text-align:right">Amort USD</th>
+                  <th style="text-align:right">Flujo USD</th>
+                  <th style="text-align:right">Acumulado</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(() => {
+                  let acum = 0;
+                  return flujosEscalados.sort((a,b) => a.Fecha_Pago.localeCompare(b.Fecha_Pago)).map(r => {
+                    acum += r.flujo_esc;
+                    return `
+                      <tr>
+                        <td class="mono">${fmtFecha(r.Fecha_Pago)}</td>
+                        <td class="num">${fmtMoney(r.interes_esc, 'USD', 2)}</td>
+                        <td class="num">${fmtMoney(r.amort_esc, 'USD', 2)}</td>
+                        <td class="num highlight">${fmtMoney(r.flujo_esc, 'USD', 2)}</td>
+                        <td class="num" style="color: var(--green)">${fmtMoney(acum, 'USD', 2)}</td>
+                      </tr>`;
+                  }).join('');
+                })()}
+              </tbody>
+            </table>
+            <div class="note">
+              Los flujos están en <strong>USD</strong> siempre (así los paga el Tesoro/BCRA). La columna "Acumulado" muestra el total cobrado hasta cada fecha.
+              ${tirAnual != null ? `La TIR neta de ${(tirAnual*100).toFixed(2)}% se calculó con Newton-Raphson sobre el flujo neto de costos de entrada.` : ''}
+            </div>
+          </div>
+        </div>
+      `}
+    `;
+
+    document.getElementById('modalBondContent').innerHTML = html;
+    document.getElementById('modalBond').classList.add('open');
+    document.getElementById('closeBondModal').addEventListener('click', () => {
+      document.getElementById('modalBond').classList.remove('open');
+    });
+  }
+
+  // Calcular TIR anual con Newton-Raphson
+  // cashflow0 = negativo (lo que pago), flujos = [{Fecha_Pago, flujo_esc}]
+  function calcIRR(cashflow0, flujos, fechaInicial) {
+    const dias = flujos.map(f => {
+      const d = parseISO(f.Fecha_Pago);
+      return Math.max(0, (d - fechaInicial) / (1000 * 60 * 60 * 24));
+    });
+    const valores = flujos.map(f => f.flujo_esc);
+
+    // NPV function: NPV = CF0 + sum( CFi / (1+r)^(ti/365) )
+    function npv(r) {
+      let sum = cashflow0;
+      for (let i = 0; i < valores.length; i++) {
+        sum += valores[i] / Math.pow(1 + r, dias[i] / 365);
+      }
+      return sum;
+    }
+    function dNpv(r) {
+      let sum = 0;
+      for (let i = 0; i < valores.length; i++) {
+        const t = dias[i] / 365;
+        sum += -t * valores[i] / Math.pow(1 + r, t + 1);
+      }
+      return sum;
+    }
+
+    let r = 0.1;  // estimación inicial 10%
+    for (let i = 0; i < 100; i++) {
+      const f = npv(r);
+      const df = dNpv(r);
+      if (Math.abs(df) < 1e-10) break;
+      const nr = r - f / df;
+      if (!Number.isFinite(nr)) return null;
+      if (Math.abs(nr - r) < 1e-8) return nr;
+      r = nr;
+      // Evitar salir de rango razonable
+      if (r < -0.99) r = -0.9;
+      if (r > 10) r = 5;
+    }
+    return Math.abs(npv(r)) < 0.01 ? r : null;
   }
 
   // ============ ACTIONS ============
@@ -1459,12 +1918,12 @@
     const rows = getFiltered();
     const isPortfolio = VIEW_MODE === 'portfolio';
     const headers = isPortfolio
-      ? ['Fecha','Bono','VN_USD','Ley','Estado','Interes_USD','Amort_USD','Flujo_USD']
+      ? ['Fecha','Bono','VN_USD','Moneda','Ley','Estado','Interes_USD','Amort_USD','Flujo_USD']
       : ['Fecha','Bono','Tipo','Ley','Estado','Residual_Pct','Tasa_Pct','Interes_USD','Amort_USD','Flujo_USD'];
     const lines = [headers.join(',')];
     rows.forEach(r => {
       if (isPortfolio) {
-        lines.push([r.Fecha_Pago, `"${r.Bono}"`, r.vn, `"${r.Ley}"`, r.Estado,
+        lines.push([r.Fecha_Pago, `"${r.Bono}"`, r.vn, r.currency, `"${r.Ley}"`, r.Estado,
                     r.interes_calc.toFixed(4), r.amort_calc.toFixed(4), r.flujo_calc.toFixed(4)].join(','));
       } else {
         lines.push([r.Fecha_Pago, `"${r.Bono}"`, r.Tipo_Instrumento, `"${r.Ley}"`, r.Estado,
@@ -1493,11 +1952,11 @@
   function loadExampleCartera() {
     const pf = currentPF();
     pf.holdings = {
-      'AL30 / GD30': { vn: 10000 },
-      'AL35 / GD35': { vn: 5000 },
-      'AN29': { vn: 8000 },
-      'AO27': { vn: 5000 },
-      'BPD7 (BOPREAL S.1-D)': { vn: 3000 }
+      'AL30 / GD30': { vn: 10000, currency: 'USD' },
+      'AL35 / GD35': { vn: 5000, currency: 'USD' },
+      'AN29':        { vn: 8000, currency: 'ARS' },
+      'AO27':        { vn: 5000, currency: 'USD' },
+      'BPD7 (BOPREAL S.1-D)': { vn: 3000, currency: 'USD' }
     };
     saveStorage();
     renderPortfolioInputs();
@@ -1541,7 +2000,6 @@
   // ============ INIT ============
   loadStorage();
 
-  // Toggle modo
   document.querySelectorAll('.toggle-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
@@ -1554,7 +2012,6 @@
     });
   });
 
-  // Filtros
   document.getElementById('fEstado').addEventListener('change', render);
   document.getElementById('fTipo').addEventListener('change', render);
   document.getElementById('btnReset').addEventListener('click', resetFilters);
@@ -1586,38 +2043,41 @@
   });
   modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('open'); });
 
+  // Modal bond: cerrar al clickear backdrop o ESC
+  document.getElementById('modalBond').addEventListener('click', (e) => {
+    if (e.target.id === 'modalBond') e.currentTarget.classList.remove('open');
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.getElementById('modalBond').classList.remove('open');
+      document.getElementById('modalNewPf').classList.remove('open');
+    }
+  });
+
+  wireCosts();
   initMultiselects();
   renderTabs();
   renderPortfolioInputs();
   createCharts();
 
-  // Mostrar estado inicial de precios
   const anyManual = Object.values(PRICES).some(p => p.source === 'manual');
   const anyLive = Object.values(PRICES).some(p => p.source === 'live');
   if (anyLive) {
-    const statusDot = document.getElementById('statusDot');
-    const statusText = document.getElementById('statusText');
-    const info = document.getElementById('pricesInfo');
-    statusDot.className = 'status-dot live';
+    document.getElementById('statusDot').className = 'status-dot live';
     const count = Object.values(PRICES).filter(p => p.source === 'live').length;
-    statusText.textContent = `Precios en vivo (${count})`;
-    info.innerHTML = `Cargados previamente: ${new Date(PRICES_FETCHED_AT).toLocaleString('es-AR')} · Click "Actualizar precios" para refrescar`;
+    document.getElementById('statusText').textContent = `Precios en vivo (${count})`;
+    document.getElementById('pricesInfo').innerHTML = `Cargados previamente: ${new Date(PRICES_FETCHED_AT).toLocaleString('es-AR')}`;
   } else if (anyManual) {
-    document.getElementById('statusDot').className = 'status-dot';
     document.getElementById('statusText').textContent = 'Precios manuales cargados';
-    document.getElementById('pricesInfo').innerHTML = `${Object.values(PRICES).filter(p => p.source === 'manual').length} precios cargados manualmente · Click "Actualizar precios" para intentar traer precios en vivo`;
   }
 
   render();
-
-  // Auto-fetch inicial (fire-and-forget)
   fetchPrices().catch(() => {});
-
-  // Auto-refresh cada 5 minutos si tuvimos éxito al menos una vez
   setInterval(() => {
     const anyLive = Object.values(PRICES).some(p => p.source === 'live');
     if (anyLive) fetchPrices().catch(() => {});
   }, 5 * 60 * 1000);
+
 </script>
 </body>
 </html>
