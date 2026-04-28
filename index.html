@@ -187,10 +187,15 @@
   .portfolio-summary-left { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
   .portfolio-summary-right {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 13px; color: var(--text-dim); white-space: nowrap; text-align: right;
+    font-size: 11px; color: var(--text-faint); white-space: nowrap; text-align: right;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
   }
-  .portfolio-summary-right strong {
-    color: var(--accent); font-weight: 600; font-size: 15px; margin-left: 8px;
+  .portfolio-summary-right .inv-monto {
+    font-size: 18px; font-weight: 700; color: var(--accent);
+    letter-spacing: -0.01em;
+  }
+  .portfolio-summary-right .inv-vn {
+    font-size: 11px; color: var(--text-faint);
   }
   .pf-summary-investment { display: block; font-size: 11px; color: var(--text-faint); margin-top: 2px; }
   .portfolio-body { padding: 0 20px 20px; border-top: 1px solid var(--border); }
@@ -689,8 +694,8 @@
         <div class="chart-sub" id="pfSubtitle">Ingresá el VN. Tocá cualquier bono para ver la calculadora de inversión.</div>
       </div>
       <div class="portfolio-summary-right">
-        VN Total: <strong id="carteraTotal">0</strong>
-        <span class="pf-summary-investment" id="carteraInv">—</span>
+        <span class="inv-monto" id="carteraInv">—</span>
+        <span class="inv-vn">VN: <span id="carteraTotal">0</span></span>
       </div>
     </summary>
     <div class="portfolio-body">
@@ -1538,7 +1543,9 @@
     if (investedUsd > 0) parts.push('US$ ' + investedUsd.toLocaleString('es-AR', { maximumFractionDigits: 0 }));
     if (investedArs > 0) parts.push('$ ' + investedArs.toLocaleString('es-AR', { maximumFractionDigits: 0 }));
     const invEl = document.getElementById('carteraInv');
-    invEl.textContent = parts.length ? 'Invertido ≈ ' + parts.join(' + ') : '';
+    invEl.textContent = parts.length ? parts.join(' + ') : '—';
+    // tooltip con el detalle
+    invEl.title = parts.length ? 'Monto invertido aproximado' : 'Sin precio cargado';
   }
 
   // ============ MULTISELECT FILTERS ============
