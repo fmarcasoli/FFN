@@ -796,9 +796,16 @@
           <div class="chart-title">Cronograma de pagos</div>
           <div class="chart-sub" id="chartSubTimeline">Interés vs. Amortización por fecha</div>
         </div>
-        <div class="legend">
-          <div class="legend-item"><span class="legend-dot" style="background: #5aa4e8"></span> Interés</div>
-          <div class="legend-item"><span class="legend-dot" style="background: #5fc387"></span> Amortización</div>
+        <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+          <div class="view-toggle" id="timelineCurrencyToggle" style="padding:3px;">
+            <button class="toggle-btn active" data-tcurr="both" style="padding:5px 10px; font-size:10px;">Ambos</button>
+            <button class="toggle-btn" data-tcurr="USD" style="padding:5px 10px; font-size:10px;">U$</button>
+            <button class="toggle-btn" data-tcurr="ARS" style="padding:5px 10px; font-size:10px;">$</button>
+          </div>
+          <div class="legend" id="timelineLegend">
+            <div class="legend-item"><span class="legend-dot" style="background: #5aa4e8"></span> Interés</div>
+            <div class="legend-item"><span class="legend-dot" style="background: #5fc387"></span> Amortización</div>
+          </div>
         </div>
       </div>
       <div class="chart-container tall">
@@ -1698,6 +1705,7 @@
   const gridOpts = { color: '#1a1f2b', drawBorder: false };
   const COLORS = { int: '#5aa4e8', amort: '#5fc387', total: '#f5b942' };
   let chartTimeline, chartMonthly, chartBonds, chartMonthlyUSD, chartMonthlyARS;
+  let TIMELINE_CURRENCY = 'both'; // 'both' | 'USD' | 'ARS'
 
   function createCharts() {
     chartTimeline = new Chart(document.getElementById('chartTimeline').getContext('2d'), {
@@ -1748,17 +1756,51 @@
       }
     });
 
+    // Helper: genera el afterBody del tooltip con desglose por bono
+    function afterBodyBonos(ctxArr, chart, sym) {
+      if (!ctxArr.length || !chart._bonosPorMes) return [];
+      const idx = ctxArr[0].dataIndex;
+      const bonos = chart._bonosPorMes[idx];
+      if (!bonos || bonos.length === 0) return [];
+      // Agrupar por bono
+      const agg = {};
+      bonos.forEach(b => {
+        if (!agg[b.bono]) agg[b.bono] = { int: 0, amort: 0, total: 0, moneda: b.moneda };
+        agg[b.bono].int += b.int;
+        agg[b.bono].amort += b.amort;
+        agg[b.bono].total += b.total;
+      });
+      const lines = ['', '─── Por bono ───'];
+      Object.keys(agg).sort().forEach(name => {
+        const a = agg[name];
+        const s = a.moneda === 'ARS' ? '$' : 'U$';
+        const intStr = a.int > 0.001 ? `int ${s}${fmt(a.int,0)}` : '';
+        const amStr  = a.amort > 0.001 ? `amort ${s}${fmt(a.amort,0)}` : '';
+        const detail = [intStr, amStr].filter(Boolean).join(' + ');
+        lines.push(`${name}: ${detail}`);
+      });
+      return lines;
+    }
+
     chartMonthly = new Chart(document.getElementById('chartMonthly').getContext('2d'), {
       type: 'bar',
       data: { labels: [], datasets: [{ label: 'Flujo', data: [], backgroundColor: COLORS.total, borderRadius: 3 }]},
       options: {
         responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
         plugins: { legend: { display: false },
-          tooltip: { backgroundColor: '#141821', borderColor: '#2f3747', borderWidth: 1,
-            callbacks: { label: (ctx) => '$' + fmt(ctx.parsed.y, 2) } } },
+          tooltip: {
+            backgroundColor: '#141821', borderColor: '#2f3747', borderWidth: 1, padding: 10,
+            callbacks: {
+              title: (c) => c[0].label,
+              label: (ctx) => 'Total: ' + fmt(ctx.parsed.y, 2),
+              afterBody: (ctxArr) => afterBodyBonos(ctxArr, chartMonthly, '')
+            }
+          }
+        },
         scales: {
           x: { grid: gridOpts, ticks: { maxRotation: 60, minRotation: 60 } },
-          y: { grid: gridOpts, ticks: { callback: v => '$' + v.toLocaleString('es-AR', { maximumFractionDigits: 0 }) } }
+          y: { grid: gridOpts, ticks: { callback: v => v.toLocaleString('es-AR', { maximumFractionDigits: 0 }) } }
         }
       }
     });
@@ -1791,13 +1833,15 @@
       ]},
       options: {
         responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { display: false },
           tooltip: {
             backgroundColor: '#141821', borderColor: '#2f3747', borderWidth: 1, padding: 10,
             callbacks: {
               title: (c) => c[0].label,
-              label: (ctx) => ctx.dataset.label + ': U$ ' + fmt(ctx.parsed.y, 2)
+              label: (ctx) => ctx.dataset.label + ': ' + fmt(ctx.parsed.y, 2),
+              afterBody: (ctxArr) => afterBodyBonos(ctxArr, chartMonthlyUSD, 'U$')
             }
           }
         },
@@ -1817,13 +1861,15 @@
       ]},
       options: {
         responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { display: false },
           tooltip: {
             backgroundColor: '#141821', borderColor: '#2f3747', borderWidth: 1, padding: 10,
             callbacks: {
               title: (c) => c[0].label,
-              label: (ctx) => ctx.dataset.label + ': $ ' + fmt(ctx.parsed.y, 0)
+              label: (ctx) => ctx.dataset.label + ': ' + fmt(ctx.parsed.y, 0),
+              afterBody: (ctxArr) => afterBodyBonos(ctxArr, chartMonthlyARS, '$')
             }
           }
         },
@@ -1976,9 +2022,13 @@
       document.getElementById('kpiCountSub').textContent = `${bonosUnicos} bonos distintos`;
     }
 
-    // Timeline: agrupar por fecha + guardar desglose por bono para tooltip
+    // Timeline: filtrar por moneda seleccionada y guardar desglose por bono para tooltip
+    const rowsTimeline = TIMELINE_CURRENCY === 'both'
+      ? rows
+      : rows.filter(r => (r.moneda_nativa || 'USD') === TIMELINE_CURRENCY);
+
     const byDate = {};
-    rows.forEach(r => {
+    rowsTimeline.forEach(r => {
       if (!byDate[r.Fecha_Pago]) byDate[r.Fecha_Pago] = { int: 0, amort: 0, bonos: [] };
       byDate[r.Fecha_Pago].int += r.interes_calc;
       byDate[r.Fecha_Pago].amort += r.amort_calc;
@@ -1991,20 +2041,22 @@
       });
     });
     const sortedDates = Object.keys(byDate).sort();
-    // Guardamos los bonos por fecha en una propiedad custom del chart, para el tooltip
     chartTimeline._bonosPorFecha = sortedDates.map(d => byDate[d].bonos);
     chartTimeline.data.labels = sortedDates.map(d => fmtFecha(d));
     chartTimeline.data.datasets[0].data = sortedDates.map(d => byDate[d].int);
     chartTimeline.data.datasets[1].data = sortedDates.map(d => byDate[d].amort);
     chartTimeline.update();
 
-    // Monthly
-    const byMonth = {};
+    // Monthly - agregado (mezcla monedas) con desglose por bono para tooltip
+    const byMonth = {}, byMonthBonos = {};
     rows.forEach(r => {
       const key = `${r.Anio}-${String(r.Mes).padStart(2,'0')}`;
       byMonth[key] = (byMonth[key] || 0) + r.flujo_calc;
+      if (!byMonthBonos[key]) byMonthBonos[key] = [];
+      byMonthBonos[key].push({ bono: r.Bono, moneda: r.moneda_nativa || 'USD', int: r.interes_calc, amort: r.amort_calc, total: r.flujo_calc });
     });
     const sortedMonths = Object.keys(byMonth).sort();
+    chartMonthly._bonosPorMes = sortedMonths.map(m => byMonthBonos[m] || []);
     chartMonthly.data.labels = sortedMonths.map(m => {
       const [y, mo] = m.split('-');
       return MESES[parseInt(mo)-1] + ' ' + y;
@@ -2026,31 +2078,39 @@
     chartBonds.data.datasets[1].data = sortedBonds.map(b => byBond[b].amort);
     chartBonds.update();
 
-    // Gráficos mensuales por moneda (USD y ARS separados)
+    // Gráficos mensuales por moneda (USD y ARS separados) con desglose por bono
     const byMonthUSD = {}, byMonthARS = {};
+    const byMonthBUSD = {}, byMonthBARS = {};
     rows.forEach(r => {
       const key = `${r.Anio}-${String(r.Mes).padStart(2,'0')}`;
       const mn = r.moneda_nativa || 'USD';
+      const entry = { bono: r.Bono, moneda: mn, int: r.interes_calc, amort: r.amort_calc, total: r.flujo_calc };
       if (mn === 'USD') {
         if (!byMonthUSD[key]) byMonthUSD[key] = { int: 0, amort: 0 };
         byMonthUSD[key].int += r.interes_calc;
         byMonthUSD[key].amort += r.amort_calc;
+        if (!byMonthBUSD[key]) byMonthBUSD[key] = [];
+        byMonthBUSD[key].push(entry);
       } else {
         if (!byMonthARS[key]) byMonthARS[key] = { int: 0, amort: 0 };
         byMonthARS[key].int += r.interes_calc;
         byMonthARS[key].amort += r.amort_calc;
+        if (!byMonthBARS[key]) byMonthBARS[key] = [];
+        byMonthBARS[key].push(entry);
       }
     });
 
     const fmtMes = m => { const [y, mo] = m.split('-'); return MESES[parseInt(mo)-1] + ' ' + y; };
 
     const smUSD = Object.keys(byMonthUSD).sort();
+    chartMonthlyUSD._bonosPorMes = smUSD.map(m => byMonthBUSD[m] || []);
     chartMonthlyUSD.data.labels = smUSD.map(fmtMes);
     chartMonthlyUSD.data.datasets[0].data = smUSD.map(m => byMonthUSD[m].int);
     chartMonthlyUSD.data.datasets[1].data = smUSD.map(m => byMonthUSD[m].amort);
     chartMonthlyUSD.update();
 
     const smARS = Object.keys(byMonthARS).sort();
+    chartMonthlyARS._bonosPorMes = smARS.map(m => byMonthBARS[m] || []);
     chartMonthlyARS.data.labels = smARS.map(fmtMes);
     chartMonthlyARS.data.datasets[0].data = smARS.map(m => byMonthARS[m].int);
     chartMonthlyARS.data.datasets[1].data = smARS.map(m => byMonthARS[m].amort);
@@ -2765,6 +2825,16 @@
   renderTabs();
   renderPortfolioInputs();
   createCharts();
+
+  // Toggle moneda del cronograma de pagos
+  document.querySelectorAll('#timelineCurrencyToggle .toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#timelineCurrencyToggle .toggle-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      TIMELINE_CURRENCY = btn.dataset.tcurr;
+      render();
+    });
+  });
 
   const anyManual = Object.values(PRICES).some(p => p.source === 'manual');
   const anyLive = Object.values(PRICES).some(p => p.source === 'live');
