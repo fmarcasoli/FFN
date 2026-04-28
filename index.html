@@ -828,7 +828,37 @@
     </div>
   </div>
 
-  <div class="table-panel">
+  <!-- NUEVOS GRÁFICOS MENSUALES POR MONEDA -->
+  <div class="charts-grid two">
+    <div class="chart-panel">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Flujo mensual <span style="color:var(--blue)">U$</span></div>
+          <div class="chart-sub">Bonares, Globales y BOPREAL · mes a mes</div>
+        </div>
+        <div class="legend">
+          <div class="legend-item"><span class="legend-dot" style="background:#5aa4e8"></span>Interés</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#5fc387"></span>Amort.</div>
+        </div>
+      </div>
+      <div class="chart-container"><canvas id="chartMonthlyUSD"></canvas></div>
+    </div>
+    <div class="chart-panel">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Flujo mensual <span style="color:var(--purple)">$</span></div>
+          <div class="chart-sub">LECAPs, BONCAPs y BONCER · mes a mes</div>
+        </div>
+        <div class="legend">
+          <div class="legend-item"><span class="legend-dot" style="background:#b88ee8"></span>Interés</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#e87066"></span>Amort.</div>
+        </div>
+      </div>
+      <div class="chart-container"><canvas id="chartMonthlyARS"></canvas></div>
+    </div>
+  </div>
+
+
     <div class="table-header">
       <div>
         <div class="chart-title">Detalle de flujos</div>
@@ -1667,7 +1697,7 @@
   Chart.defaults.font.size = 11;
   const gridOpts = { color: '#1a1f2b', drawBorder: false };
   const COLORS = { int: '#5aa4e8', amort: '#5fc387', total: '#f5b942' };
-  let chartTimeline, chartMonthly, chartBonds;
+  let chartTimeline, chartMonthly, chartBonds, chartMonthlyUSD, chartMonthlyARS;
 
   function createCharts() {
     chartTimeline = new Chart(document.getElementById('chartTimeline').getContext('2d'), {
@@ -1748,6 +1778,58 @@
         scales: {
           x: { grid: gridOpts, stacked: true, ticks: { callback: v => '$' + v.toLocaleString('es-AR', { maximumFractionDigits: 0 }) } },
           y: { grid: { display: false }, stacked: true }
+        }
+      }
+    });
+
+    // Gráfico mensual USD (Bonares, Globales, BOPREAL)
+    chartMonthlyUSD = new Chart(document.getElementById('chartMonthlyUSD').getContext('2d'), {
+      type: 'bar',
+      data: { labels: [], datasets: [
+        { label: 'Interés U$', data: [], backgroundColor: COLORS.int, stack: 'a', borderRadius: 2 },
+        { label: 'Amort. U$', data: [], backgroundColor: COLORS.amort, stack: 'a', borderRadius: 2 }
+      ]},
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#141821', borderColor: '#2f3747', borderWidth: 1, padding: 10,
+            callbacks: {
+              title: (c) => c[0].label,
+              label: (ctx) => ctx.dataset.label + ': U$ ' + fmt(ctx.parsed.y, 2)
+            }
+          }
+        },
+        scales: {
+          x: { grid: gridOpts, ticks: { maxRotation: 60, minRotation: 60 }, stacked: true },
+          y: { grid: gridOpts, stacked: true, ticks: { callback: v => 'U$ ' + v.toLocaleString('es-AR', { maximumFractionDigits: 0 }) } }
+        }
+      }
+    });
+
+    // Gráfico mensual ARS (LECAPs, BONCAPs, BONCER)
+    chartMonthlyARS = new Chart(document.getElementById('chartMonthlyARS').getContext('2d'), {
+      type: 'bar',
+      data: { labels: [], datasets: [
+        { label: 'Interés $', data: [], backgroundColor: '#b88ee8', stack: 'a', borderRadius: 2 },
+        { label: 'Amort. $', data: [], backgroundColor: '#e87066', stack: 'a', borderRadius: 2 }
+      ]},
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#141821', borderColor: '#2f3747', borderWidth: 1, padding: 10,
+            callbacks: {
+              title: (c) => c[0].label,
+              label: (ctx) => ctx.dataset.label + ': $ ' + fmt(ctx.parsed.y, 0)
+            }
+          }
+        },
+        scales: {
+          x: { grid: gridOpts, ticks: { maxRotation: 60, minRotation: 60 }, stacked: true },
+          y: { grid: gridOpts, stacked: true, ticks: { callback: v => '$ ' + v.toLocaleString('es-AR', { maximumFractionDigits: 0 }) } }
         }
       }
     });
@@ -1943,6 +2025,36 @@
     chartBonds.data.datasets[0].data = sortedBonds.map(b => byBond[b].int);
     chartBonds.data.datasets[1].data = sortedBonds.map(b => byBond[b].amort);
     chartBonds.update();
+
+    // Gráficos mensuales por moneda (USD y ARS separados)
+    const byMonthUSD = {}, byMonthARS = {};
+    rows.forEach(r => {
+      const key = `${r.Anio}-${String(r.Mes).padStart(2,'0')}`;
+      const mn = r.moneda_nativa || 'USD';
+      if (mn === 'USD') {
+        if (!byMonthUSD[key]) byMonthUSD[key] = { int: 0, amort: 0 };
+        byMonthUSD[key].int += r.interes_calc;
+        byMonthUSD[key].amort += r.amort_calc;
+      } else {
+        if (!byMonthARS[key]) byMonthARS[key] = { int: 0, amort: 0 };
+        byMonthARS[key].int += r.interes_calc;
+        byMonthARS[key].amort += r.amort_calc;
+      }
+    });
+
+    const fmtMes = m => { const [y, mo] = m.split('-'); return MESES[parseInt(mo)-1] + ' ' + y; };
+
+    const smUSD = Object.keys(byMonthUSD).sort();
+    chartMonthlyUSD.data.labels = smUSD.map(fmtMes);
+    chartMonthlyUSD.data.datasets[0].data = smUSD.map(m => byMonthUSD[m].int);
+    chartMonthlyUSD.data.datasets[1].data = smUSD.map(m => byMonthUSD[m].amort);
+    chartMonthlyUSD.update();
+
+    const smARS = Object.keys(byMonthARS).sort();
+    chartMonthlyARS.data.labels = smARS.map(fmtMes);
+    chartMonthlyARS.data.datasets[0].data = smARS.map(m => byMonthARS[m].int);
+    chartMonthlyARS.data.datasets[1].data = smARS.map(m => byMonthARS[m].amort);
+    chartMonthlyARS.update();
 
     // Table
     const thead = document.getElementById('tablaThead');
@@ -2331,8 +2443,8 @@
     const headers = [
       'Fecha','Bono','Ley','Moneda_Compra',
       'VN','Precio_Compra_c100','Monto_Invertido',
-      'Interes_USD','Amortizacion_USD','Flujo_Total_USD',
-      'Interes_ARS','Amortizacion_ARS','Flujo_Total_ARS',
+      'Interes_U$','Amortizacion_U$','Flujo_Total_U$',
+      'Interes_$','Amortizacion_$','Flujo_Total_$',
       'FX_Implicito'
     ];
 
@@ -2404,7 +2516,7 @@
     // ===== Línea en blanco + RESUMEN MENSUAL =====
     lines.push('');
     lines.push(['RESUMEN MENSUAL'].join(SEP));
-    lines.push(['Mes','','','','','','','Interes_USD','Amortizacion_USD','Flujo_Total_USD','Interes_ARS','Amortizacion_ARS','Flujo_Total_ARS',''].join(SEP));
+    lines.push(['Mes','','','','','','','Interes_U$','Amortizacion_U$','Flujo_Total_U$','Interes_$','Amortizacion_$','Flujo_Total_$',''].join(SEP));
 
     const byMonth = {};
     rowsPendientes.forEach(r => {
