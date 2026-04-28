@@ -689,7 +689,7 @@
         <div class="chart-sub" id="pfSubtitle">Ingresá el VN. Tocá cualquier bono para ver la calculadora de inversión.</div>
       </div>
       <div class="portfolio-summary-right">
-        VN Total: <strong id="carteraTotal">USD 0</strong>
+        VN Total: <strong id="carteraTotal">0</strong>
         <span class="pf-summary-investment" id="carteraInv">—</span>
       </div>
     </summary>
@@ -1138,6 +1138,31 @@
       });
       PRICES = { ...PRICES, ...newPrices };
       PRICES_FETCHED_AT = Date.now();
+
+      // Recalcular VN para holdings que tienen monto_invertido pero no VN (esperaban precio)
+      let vnRecalculados = 0;
+      Object.keys(PORTFOLIOS).forEach(pfId => {
+        const pf = PORTFOLIOS[pfId];
+        Object.keys(pf.holdings).forEach(bono => {
+          const h = pf.holdings[bono];
+          if (!h || typeof h === 'number') return;
+          if (h.monto_invertido > 0 && (!h.vn || h.vn === 0)) {
+            const meta = BOND_META[bono] || {};
+            const monedaNativa = meta.moneda_nativa || 'USD';
+            const currency = monedaNativa === 'ARS' ? 'ARS' : (h.currency || 'USD');
+            // Buscar precio en los nuevos precios
+            const tickers = currency === 'ARS' ? (meta.tickers_ars || []) : (meta.tickers_usd || []);
+            let precio = null;
+            for (const t of tickers) {
+              if (newPrices[t]) { precio = newPrices[t].price; break; }
+            }
+            if (precio && precio > 0) {
+              h.vn = Math.round(h.monto_invertido / precio * 100);
+              vnRecalculados++;
+            }
+          }
+        });
+      });
       saveStorage();
 
       statusDot.className = 'status-dot live';
@@ -1301,6 +1326,11 @@
 
         // Calcular monto a partir del VN actual y el precio (display only)
         const montoCalculado = (vn > 0 && precioFinal != null) ? (vn * precioFinal / 100) : 0;
+        // Si hay monto guardado pero aún no hay VN, mostrarlo como placeholder
+        const h2 = normalizeHolding(pf.holdings[b]);
+        const montoGuardado = h2.monto_invertido || 0;
+        const montoMostrar = montoCalculado > 0 ? montoCalculado.toFixed(2) : (montoGuardado > 0 ? montoGuardado.toFixed(2) : '');
+        const hayAvisoPrecio = montoGuardado > 0 && vn === 0 && precioFinal == null;
 
         html += `
           <div class="bond-input ${hasVal}" data-bono="${b}" data-open-modal>
@@ -1318,9 +1348,10 @@
             <div class="bond-input-row" style="margin-bottom: 4px;" data-nomodal title="Cuánto querés invertir en esta moneda. Calcula el VN automáticamente.">
               <span class="prefix" style="color: var(--accent-dim);">${symbol}</span>
               <input type="number" class="monto-input" data-bono="${b}"
-                     value="${montoCalculado > 0 ? montoCalculado.toFixed(2) : ''}" placeholder="monto a invertir" min="0" step="0.01"
+                     value="${montoMostrar}" placeholder="monto a invertir" min="0" step="0.01"
                      style="border-color: rgba(245, 185, 66, 0.2);">
             </div>
+            ${hayAvisoPrecio ? `<div class="monto-aviso" style="font-size: 10px; color: var(--accent); font-family: 'JetBrains Mono', monospace; padding: 2px 0 4px;">⚠ Sin precio · VN se calculará al actualizar precios</div>` : `<div class="monto-aviso" style="display:none; font-size: 10px; color: var(--accent); font-family: 'JetBrains Mono', monospace; padding: 2px 0 4px;"></div>`}
             <div class="bond-input-row" data-nomodal>
               <span class="prefix" style="font-size: 10px; opacity: 0.7;">Px</span>
               <input type="number" class="price-input" data-bono="${b}" data-field="${manualKey}"
@@ -1333,7 +1364,7 @@
     });
     container.innerHTML = html;
 
-    // Wire input de MONTO: cuando lo cambian, calcular VN automáticamente
+    // Wire input de MONTO: cuando lo cambian, calcular VN automáticamente si hay precio
     container.querySelectorAll('.monto-input').forEach(inp => {
       inp.addEventListener('input', (e) => {
         const bono = e.target.dataset.bono;
@@ -1341,30 +1372,55 @@
         const pf = currentPF();
         const meta = BOND_META[bono] || {};
         const monedaNativa = meta.moneda_nativa || 'USD';
+
+        // Asegurar que existe el holding como objeto
         if (!pf.holdings[bono] || typeof pf.holdings[bono] === 'number') {
           pf.holdings[bono] = normalizeHolding(pf.holdings[bono]);
         }
         const h = pf.holdings[bono];
         const currency = monedaNativa === 'ARS' ? 'ARS' : (h.currency || 'USD');
         const precio = effectivePrice(bono, currency);
-        if (Number.isFinite(monto) && monto > 0 && precio && precio.price > 0) {
-          // VN = monto / precio * 100
+
+        if (!Number.isFinite(monto) || monto <= 0) {
+          // Limpiar
+          delete h.vn;
+          delete h.monto_invertido;
+          if (!h.precio_manual_usd && !h.precio_manual_ars) {
+            delete pf.holdings[bono];
+          }
+          saveStorage();
+          updateCarteraTotal();
+          if (VIEW_MODE === 'portfolio') render();
+          return;
+        }
+
+        // Guardar el monto siempre, aunque no haya precio todavía
+        h.monto_invertido = monto;
+
+        if (precio && precio.price > 0) {
+          // Si hay precio → calcular VN
           const nuevoVN = Math.round(monto / precio.price * 100);
           h.vn = nuevoVN;
-          // Actualizar el input de VN en pantalla sin re-renderizar todo
-          const vnInp = container.querySelector(`.vn-input[data-bono="${CSS.escape(bono)}"]`);
+          // Reflejar en el input de VN sin re-renderizar todo
+          const vnInp = e.target.closest('.bond-input')?.querySelector('.vn-input');
           if (vnInp) vnInp.value = nuevoVN;
-        } else if (Number.isFinite(monto) && monto === 0) {
-          delete h.vn;
+          // Ocultar aviso si existe
+          const aviso = e.target.closest('.bond-input')?.querySelector('.monto-aviso');
+          if (aviso) aviso.style.display = 'none';
+        } else {
+          // Sin precio: guardar monto y avisar al usuario
+          const aviso = e.target.closest('.bond-input')?.querySelector('.monto-aviso');
+          if (aviso) {
+            aviso.style.display = 'block';
+            aviso.textContent = '⚠ Sin precio cargado. El VN se calculará cuando llegue el precio de mercado.';
+          }
         }
-        const hh = pf.holdings[bono];
-        if (!hh.vn && hh.precio_manual_usd == null && hh.precio_manual_ars == null) {
-          delete pf.holdings[bono];
-        }
+
         saveStorage();
         updateCarteraTotal();
         if (VIEW_MODE === 'portfolio') render();
       });
+
       // Al perder foco, re-render para refrescar la card completa
       inp.addEventListener('blur', () => renderPortfolioInputs());
     });
@@ -1381,12 +1437,25 @@
         }
         if (Number.isFinite(val) && val > 0) {
           pf.holdings[bono][field] = val;
+          // Si el usuario edita VN directamente, borrar el monto guardado para no confundir
+          if (field === 'vn') {
+            delete pf.holdings[bono].monto_invertido;
+            // Actualizar el input de monto para que refleje el nuevo VN
+            const meta = BOND_META[bono] || {};
+            const monedaNativa = meta.moneda_nativa || 'USD';
+            const currency = monedaNativa === 'ARS' ? 'ARS' : (pf.holdings[bono].currency || 'USD');
+            const precio = effectivePrice(bono, currency);
+            if (precio && precio.price > 0) {
+              const montoInp = e.target.closest('.bond-input')?.querySelector('.monto-input');
+              if (montoInp) montoInp.value = (val * precio.price / 100).toFixed(2);
+            }
+          }
         } else {
           delete pf.holdings[bono][field];
         }
         // Si queda vacío completamente, eliminar
         const h = pf.holdings[bono];
-        if (!h.vn && h.precio_manual_usd == null && h.precio_manual_ars == null) {
+        if (!h.vn && !h.monto_invertido && h.precio_manual_usd == null && h.precio_manual_ars == null) {
           delete pf.holdings[bono];
         }
         saveStorage();
@@ -1433,20 +1502,38 @@
 
   function updateCarteraTotal() {
     const pf = currentPF();
-    const totalVN = Object.values(pf.holdings).reduce((a, h) => a + (normalizeHolding(h).vn || 0), 0);
-    document.getElementById('carteraTotal').textContent = 'USD ' + totalVN.toLocaleString('es-AR', { maximumFractionDigits: 0 });
 
+    // Separar VN por moneda nativa del bono
+    let totalVN_usd = 0, totalVN_ars = 0;
     let investedUsd = 0, investedArs = 0;
+
     Object.keys(pf.holdings).forEach(b => {
       const h = normalizeHolding(pf.holdings[b]);
-      if (!h.vn) return;
-      const precio = effectivePrice(b, h.currency);
+      const meta = BOND_META[b] || {};
+      const monedaNativa = meta.moneda_nativa || 'USD';
+      const vn = h.vn || 0;
+
+      if (monedaNativa === 'ARS') totalVN_ars += vn;
+      else totalVN_usd += vn;
+
+      if (!vn) return;
+
+      // Para el invertido, usar moneda_nativa para saber en qué moneda se expresa el precio
+      const currency = monedaNativa === 'ARS' ? 'ARS' : (h.currency || 'USD');
+      const precio = effectivePrice(b, currency);
       if (precio == null) return;
-      const monto = h.vn * precio.price / 100;
-      if (h.currency === 'ARS') investedArs += monto;
+      const monto = vn * precio.price / 100;
+      if (monedaNativa === 'ARS') investedArs += monto;
       else investedUsd += monto;
     });
 
+    // Mostrar VN: si hay ambas monedas, mostrar separado; si solo una, mostrar esa
+    const vnPartes = [];
+    if (totalVN_usd > 0) vnPartes.push('USD ' + totalVN_usd.toLocaleString('es-AR', { maximumFractionDigits: 0 }));
+    if (totalVN_ars > 0) vnPartes.push('ARS ' + totalVN_ars.toLocaleString('es-AR', { maximumFractionDigits: 0 }));
+    document.getElementById('carteraTotal').textContent = vnPartes.length ? vnPartes.join(' + ') : '0';
+
+    // Mostrar invertido separado por moneda
     const parts = [];
     if (investedUsd > 0) parts.push('US$ ' + investedUsd.toLocaleString('es-AR', { maximumFractionDigits: 0 }));
     if (investedArs > 0) parts.push('$ ' + investedArs.toLocaleString('es-AR', { maximumFractionDigits: 0 }));
