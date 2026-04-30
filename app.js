@@ -1,0 +1,2127 @@
+/**
+ * app.js — Dashboard de Flujos de Bonos Soberanos Argentinos
+ * Arquitectura: módulos separados por responsabilidad dentro de un IIFE.
+ * Preparado para migración futura a React/Vue (lógica separada de UI).
+ *
+ * Módulos:
+ *  1. DataLayer      — carga, caché, retry de data.json
+ *  2. AppState       — estado global único y mutable
+ *  3. Finance        — cálculos financieros (TIR, Duration, Yield, flujos)
+ *  4. Insights       — análisis automático de cartera
+ *  5. Storage        — persistencia en localStorage (carteras, precios, versiones)
+ *  6. PricesAPI      — fetch de data912.com con 4 endpoints
+ *  7. UI / Render    — todo el DOM: KPIs, charts, tabla, portfolio inputs
+ *  8. ExportImport   — CSV, Excel (SheetJS), JSON, link compartible
+ *  9. Scenarios      — sliders de escenarios, recálculo en tiempo real
+ * 10. Init           — bootstrap, event wiring
+ */
+
+(function () {
+  'use strict';
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 1. DATA LAYER — fetch + cache + retry
+  // ─────────────────────────────────────────────────────────────────────────────
+  const DataLayer = (() => {
+    const CACHE_KEY = 'bonos_data_v1';
+    const CACHE_TTL = 60 * 60 * 1000; // 1 hora
+
+    async function fetchWithRetry(url, retries = 3, delayMs = 800) {
+      for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return await res.json();
+        } catch (err) {
+          if (attempt === retries) throw err;
+          await new Promise(r => setTimeout(r, delayMs * attempt));
+        }
+      }
+    }
+
+    function getFromCache() {
+      try {
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (!raw) return null;
+        const { ts, data } = JSON.parse(raw);
+        if (Date.now() - ts > CACHE_TTL) return null;
+        return data;
+      } catch { return null; }
+    }
+
+    function saveToCache(data) {
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
+      } catch { /* storage full — ignorar */ }
+    }
+
+    async function load(onProgress) {
+      // 1) intentar caché
+      const cached = getFromCache();
+      if (cached) {
+        onProgress?.('cache');
+        return cached;
+      }
+      // 2) red
+      onProgress?.('fetching');
+      const data = await fetchWithRetry('./data.json');
+      saveToCache(data);
+      onProgress?.('ready');
+      return data;
+    }
+
+    return { load };
+  })();
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 2. APP STATE — objeto global único, nunca mutado directamente desde la UI
+  // ─────────────────────────────────────────────────────────────────────────────
+  const AppState = (() => {
+    const state = {
+      // Datos base
+      DATA: [],          // filas de flujos (cargado async)
+      BOND_META: {},     // metadata de bonos (inyectada desde HTML)
+
+      // Modo de vista
+      VIEW_MODE: 'unit', // 'unit' | 'portfolio'
+      TIMELINE_CURRENCY: 'both', // 'both' | 'USD' | 'ARS'
+
+      // Filtros
+      FILTERS: { anio: new Set(), mes: new Set(), dia: new Set(), bono: new Set() },
+
+      // Precios de mercado
+      PRICES: {},
+      PRICES_FETCHED_AT: null,
+
+      // Carteras
+      PORTFOLIOS: {},
+      ACTIVE_PF: null,
+
+      // Costos de operación
+      COSTS: { comision: 0.5, derechos: 0.045, iva: 21, inflacion: 35 },
+
+      // Escenarios (separados del estado real para no contaminar datos)
+      SCENARIO: {
+        active: false,
+        tasaDescuento: 0,   // % adicional a aplicar al descontar flujos (+/-)
+        inflacionDelta: 0,  // % adicional sobre COSTS.inflacion para CER
+        precioDelta: 0,     // % de cambio de precios (sube/baja todos uniformemente)
+      },
+
+      // Historial de versiones de cartera
+      PF_VERSIONS: [],
+    };
+
+    function get(key) { return state[key]; }
+    function set(key, value) { state[key] = value; }
+    function getState() { return state; }
+
+    return { get, set, getState };
+  })();
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 3. FINANCE — cálculos financieros puros (sin side effects de DOM)
+  // ─────────────────────────────────────────────────────────────────────────────
+  const Finance = (() => {
+    const parseISO = s => new Date(s + 'T00:00:00');
+
+    /** Newton-Raphson IRR. cashflow0 negativo = inversión. */
+    function calcIRR(cashflow0, flujos, fechaInicial) {
+      const today = fechaInicial || new Date();
+      const dias = flujos.map(f => Math.max(0, (parseISO(f.Fecha_Pago) - today) / 86400000));
+      const valores = flujos.map(f => f.flujo_esc ?? f.Flujo_Total_USD);
+
+      const npv = r => cashflow0 + valores.reduce((s, v, i) => s + v / Math.pow(1 + r, dias[i] / 365), 0);
+      const dnpv = r => valores.reduce((s, v, i) => {
+        const t = dias[i] / 365;
+        return s - t * v / Math.pow(1 + r, t + 1);
+      }, 0);
+
+      let r = 0.1;
+      for (let i = 0; i < 120; i++) {
+        const f = npv(r), df = dnpv(r);
+        if (Math.abs(df) < 1e-12) break;
+        const nr = r - f / df;
+        if (!Number.isFinite(nr)) return null;
+        if (Math.abs(nr - r) < 1e-9) return nr;
+        r = Math.max(-0.99, Math.min(20, nr));
+      }
+      return Math.abs(npv(r)) < 0.1 ? r : null;
+    }
+
+    /**
+     * TIR ponderada de la cartera.
+     * Pondera cada bono por su monto invertido.
+     */
+    function portfolioWeightedTIR(holdings, bondMeta, prices, costs, data) {
+      const today = new Date(); today.setHours(0,0,0,0);
+      let totalWeight = 0, weightedTIR = 0;
+
+      Object.keys(holdings).forEach(bono => {
+        const h = holdings[bono];
+        const vn = h.vn || 0;
+        if (!vn) return;
+        const meta = bondMeta[bono] || {};
+        const currency = meta.moneda_nativa === 'ARS' ? 'ARS' : (h.currency || 'USD');
+        const priceEntry = effectivePrice(bono, currency, h, meta, prices);
+        if (!priceEntry) return;
+
+        const montoInvertido = vn * priceEntry.price / 100;
+        const costoTotal = montoInvertido * (1 + (costs.comision + costs.derechos) / 100 * (1 + costs.iva / 100));
+
+        const esCER = meta.tipo === 'BONCER' || meta.tipo === 'BONCER cero';
+        const flujosBono = data
+          .filter(r => r.Bono === bono && r.Estado === 'Pendiente')
+          .map(r => {
+            const fInfla = esCER ? factorInflacion(r.Fecha_Pago, costs.inflacion) : 1;
+            return { Fecha_Pago: r.Fecha_Pago, flujo_esc: r.Flujo_Total_USD * (vn / 100) * fInfla };
+          });
+
+        if (!flujosBono.length) return;
+        const tir = calcIRR(-costoTotal, flujosBono, today);
+        if (tir === null) return;
+
+        weightedTIR += tir * montoInvertido;
+        totalWeight += montoInvertido;
+      });
+
+      return totalWeight > 0 ? weightedTIR / totalWeight : null;
+    }
+
+    /**
+     * Yield corriente = Σ cupones próximos 12m / precio de mercado actual
+     */
+    function currentYield(holdings, bondMeta, prices, data) {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const in12m = new Date(today); in12m.setFullYear(in12m.getFullYear() + 1);
+      let totalCupones = 0, totalInvertido = 0;
+
+      Object.keys(holdings).forEach(bono => {
+        const h = holdings[bono];
+        const vn = h.vn || 0;
+        if (!vn) return;
+        const meta = bondMeta[bono] || {};
+        const currency = meta.moneda_nativa === 'ARS' ? 'ARS' : (h.currency || 'USD');
+        const priceEntry = effectivePrice(bono, currency, h, meta, prices);
+        if (!priceEntry) return;
+
+        const cupones12m = data.filter(r => {
+          const d = new Date(r.Fecha_Pago + 'T00:00:00');
+          return r.Bono === bono && r.Estado === 'Pendiente' && d <= in12m && r.Interes_USD > 0;
+        }).reduce((s, r) => s + r.Interes_USD * (vn / 100), 0);
+
+        totalCupones += cupones12m;
+        totalInvertido += vn * priceEntry.price / 100;
+      });
+
+      return totalInvertido > 0 ? totalCupones / totalInvertido : null;
+    }
+
+    /**
+     * Duration de Macaulay simplificada (base 30/360, sin cupones intermedios para CER).
+     * duration = Σ(t_i × CF_i / (1+y)^t_i) / Precio
+     * Supuesto: y = TIR ponderada de la cartera.
+     */
+    function macaulayDuration(holdings, bondMeta, prices, data, portfolioTIR) {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const r = portfolioTIR || 0.08;
+      let numerator = 0, denominator = 0;
+
+      Object.keys(holdings).forEach(bono => {
+        const h = holdings[bono];
+        const vn = h.vn || 0;
+        if (!vn) return;
+
+        const flujos = data.filter(d => d.Bono === bono && d.Estado === 'Pendiente');
+        flujos.forEach(row => {
+          const t = Math.max(0, (new Date(row.Fecha_Pago + 'T00:00:00') - today) / (365.25 * 86400000));
+          const cf = row.Flujo_Total_USD * (vn / 100);
+          const pv = cf / Math.pow(1 + r, t);
+          numerator += t * pv;
+          denominator += pv;
+        });
+      });
+
+      return denominator > 0 ? numerator / denominator : null;
+    }
+
+    /** Factor de inflación CER acumulado desde hoy hasta fechaIso */
+    function factorInflacion(fechaIso, inflAnualPct) {
+      const inflAnual = (inflAnualPct || 0) / 100;
+      if (inflAnual <= 0) return 1;
+      const d = (new Date(fechaIso + 'T00:00:00') - new Date()) / 86400000;
+      return d <= 0 ? 1 : Math.pow(1 + inflAnual, d / 365);
+    }
+
+    /** Obtener precio efectivo (manual > mercado) */
+    function effectivePrice(bono, currency, holding, meta, prices) {
+      const manualKey = currency === 'ARS' ? 'precio_manual_ars' : 'precio_manual_usd';
+      if (holding[manualKey] != null && holding[manualKey] > 0) {
+        return { price: holding[manualKey], source: 'manual' };
+      }
+      const tickers = currency === 'ARS' ? (meta.tickers_ars || []) : (meta.tickers_usd || []);
+      for (const t of tickers) {
+        if (prices[t]) return prices[t];
+      }
+      return null;
+    }
+
+    /** Calcular costos totales sobre un monto de compra */
+    function calcCosts(monto, costs) {
+      const comision = monto * costs.comision / 100;
+      const derechos = monto * costs.derechos / 100;
+      const iva = (comision + derechos) * costs.iva / 100;
+      return { comision, derechos, iva, total: comision + derechos + iva };
+    }
+
+    return { calcIRR, portfolioWeightedTIR, currentYield, macaulayDuration, factorInflacion, effectivePrice, calcCosts };
+  })();
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 4. INSIGHTS — análisis automático de la cartera
+  // ─────────────────────────────────────────────────────────────────────────────
+  const Insights = (() => {
+    function analyze(rows, holdings, bondMeta) {
+      const insights = [];
+      if (!rows.length) return insights;
+
+      // ── Concentración por año ──
+      const byYear = {};
+      rows.forEach(r => { byYear[r.Anio] = (byYear[r.Anio] || 0) + r.flujo_calc; });
+      const totalFlujo = Object.values(byYear).reduce((a, b) => a + b, 0);
+      if (totalFlujo > 0) {
+        const topYear = Object.entries(byYear).sort((a, b) => b[1] - a[1])[0];
+        const pct = (topYear[1] / totalFlujo * 100).toFixed(0);
+        insights.push({
+          icon: pct > 50 ? '⚠️' : '📅',
+          type: pct > 50 ? 'warn' : 'info',
+          title: 'Concentración temporal',
+          text: `${pct}% del flujo total se concentra en ${topYear[0]}. ${pct > 50 ? 'Alta dependencia de un solo año.' : 'Distribución aceptable.'}`,
+        });
+      }
+
+      // ── Distribución por moneda ──
+      const usdFlujo = rows.filter(r => (r.moneda_nativa || 'USD') === 'USD').reduce((s, r) => s + r.flujo_calc, 0);
+      const arsFlujo = rows.filter(r => r.moneda_nativa === 'ARS').reduce((s, r) => s + r.flujo_calc, 0);
+      if (usdFlujo > 0 || arsFlujo > 0) {
+        const usdPct = (usdFlujo / (usdFlujo + arsFlujo) * 100).toFixed(0);
+        insights.push({
+          icon: '💱',
+          type: 'info',
+          title: 'Distribución por moneda',
+          text: `U$ ${usdPct}% / $ ${100 - usdPct}% del flujo. ${usdPct > 80 ? 'Exposición alta a USD.' : arsFlujo > usdFlujo ? 'Exposición mayoritaria a pesos.' : 'Mix balanceado.'}`,
+        });
+      }
+
+      // ── Concentración en pocos bonos ──
+      const byBono = {};
+      rows.forEach(r => { byBono[r.Bono] = (byBono[r.Bono] || 0) + r.flujo_calc; });
+      const bonosSorted = Object.entries(byBono).sort((a, b) => b[1] - a[1]);
+      if (bonosSorted.length >= 2) {
+        const top1Pct = (bonosSorted[0][1] / totalFlujo * 100).toFixed(0);
+        insights.push({
+          icon: top1Pct > 60 ? '⚠️' : '✅',
+          type: top1Pct > 60 ? 'warn' : 'ok',
+          title: 'Diversificación',
+          text: `${bonosSorted.length} instrumento${bonosSorted.length > 1 ? 's' : ''} en cartera. El mayor (${bonosSorted[0][0].split('/')[0].trim()}) representa ${top1Pct}% del flujo total.`,
+        });
+      }
+
+      // ── Riesgo de reinversión ──
+      const nextPayments = rows
+        .filter(r => r.Estado === 'Pendiente')
+        .sort((a, b) => a.Fecha_Pago.localeCompare(b.Fecha_Pago));
+      if (nextPayments.length > 0) {
+        const next = nextPayments[0];
+        const diasAlProx = Math.round((new Date(next.Fecha_Pago + 'T00:00:00') - new Date()) / 86400000);
+        insights.push({
+          icon: '🔄',
+          type: diasAlProx < 30 ? 'warn' : 'muted',
+          title: 'Próximo cobro',
+          text: `${next.Bono} paga en ${diasAlProx} día${diasAlProx !== 1 ? 's' : ''} (${next.Fecha_Pago.slice(0, 7)}). Flujo: ${fmt(next.flujo_calc, 2)} ${next.moneda_nativa || 'USD'}.`,
+        });
+      }
+
+      // ── Bonos sin precio ──
+      const sinPrecio = Object.keys(holdings).filter(b => {
+        const h = holdings[b];
+        const meta = bondMeta[b] || {};
+        const mn = meta.moneda_nativa || 'USD';
+        return !h.precio_manual_usd && !h.precio_manual_ars && !AppState.get('PRICES')[meta.tickers_ars?.[0]] && !AppState.get('PRICES')[meta.tickers_usd?.[0]];
+      });
+      if (sinPrecio.length > 0) {
+        insights.push({
+          icon: '💡',
+          type: 'muted',
+          title: 'Precios faltantes',
+          text: `${sinPrecio.length} bono${sinPrecio.length > 1 ? 's' : ''} sin precio de mercado: ${sinPrecio.slice(0, 2).join(', ')}${sinPrecio.length > 2 ? '…' : ''}. TIR no calculable para esos.`,
+        });
+      }
+
+      return insights;
+    }
+
+    function render(insights) {
+      const el = document.getElementById('insightsPanel');
+      if (!el) return;
+      if (!insights.length) {
+        el.innerHTML = '<div class="insight-card muted"><div class="insight-icon">📊</div><div class="insight-body"><div class="insight-title">Sin datos suficientes</div><div class="insight-text">Cargá bonos en tu cartera para ver los insights automáticos.</div></div></div>';
+        return;
+      }
+      el.innerHTML = insights.map(i => `
+        <div class="insight-card ${i.type}">
+          <div class="insight-icon">${i.icon}</div>
+          <div class="insight-body">
+            <div class="insight-title">${i.title}</div>
+            <div class="insight-text">${i.text}</div>
+          </div>
+        </div>`).join('');
+    }
+
+    return { analyze, render };
+  })();
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 5. STORAGE — localStorage con versionado de cartera
+  // ─────────────────────────────────────────────────────────────────────────────
+  const Storage = (() => {
+    const KEY = 'bonos_ar_v5';
+    const VERSIONS_KEY = 'bonos_pf_versions';
+    const MAX_VERSIONS = 10;
+
+    function load() {
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (!raw) return false;
+        const obj = JSON.parse(raw);
+        const s = AppState.getState();
+        s.PORTFOLIOS = obj.portfolios || {};
+        s.ACTIVE_PF  = obj.active || null;
+        s.PRICES     = obj.prices || {};
+        s.PRICES_FETCHED_AT = obj.pricesFetchedAt || null;
+        Object.assign(s.COSTS, obj.costs || {});
+        // Cargar versiones
+        try {
+          s.PF_VERSIONS = JSON.parse(localStorage.getItem(VERSIONS_KEY) || '[]');
+        } catch { s.PF_VERSIONS = []; }
+        return true;
+      } catch { return false; }
+    }
+
+    function save() {
+      const s = AppState.getState();
+      try {
+        localStorage.setItem(KEY, JSON.stringify({
+          portfolios: s.PORTFOLIOS,
+          active: s.ACTIVE_PF,
+          prices: s.PRICES,
+          pricesFetchedAt: s.PRICES_FETCHED_AT,
+          costs: s.COSTS,
+        }));
+      } catch (e) { console.warn('save error', e); }
+    }
+
+    /** Guardar snapshot de la cartera activa como versión */
+    function saveVersion(label) {
+      const s = AppState.getState();
+      const pf = s.PORTFOLIOS[s.ACTIVE_PF];
+      if (!pf) return;
+      const versions = s.PF_VERSIONS;
+      versions.unshift({
+        id: Date.now(),
+        ts: new Date().toISOString(),
+        label: label || `v${versions.length + 1} — ${new Date().toLocaleString('es-AR')}`,
+        pfName: pf.name,
+        holdings: JSON.parse(JSON.stringify(pf.holdings)),
+      });
+      if (versions.length > MAX_VERSIONS) versions.splice(MAX_VERSIONS);
+      s.PF_VERSIONS = versions;
+      try { localStorage.setItem(VERSIONS_KEY, JSON.stringify(versions)); } catch {}
+    }
+
+    /** Restaurar una versión anterior */
+    function restoreVersion(id) {
+      const s = AppState.getState();
+      const ver = s.PF_VERSIONS.find(v => v.id === id);
+      if (!ver) return false;
+      const pf = s.PORTFOLIOS[s.ACTIVE_PF];
+      if (!pf) return false;
+      pf.holdings = JSON.parse(JSON.stringify(ver.holdings));
+      save();
+      return true;
+    }
+
+    return { load, save, saveVersion, restoreVersion };
+  })();
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 6. PRICES API
+  // ─────────────────────────────────────────────────────────────────────────────
+  const PricesAPI = (() => {
+    const ENDPOINTS = [
+      { url: 'https://data912.com/live/arg_bonds', tag: 'ARS' },
+      { url: 'https://data912.com/live/arg_notes', tag: 'USD' },
+      { url: 'https://data912.com/live/arg_short', tag: 'ARS' },
+      { url: 'https://data912.com/live/arg_cer',   tag: 'ARS' },
+    ];
+
+    let _refreshTimer = null;
+
+    async function fetch5min() {
+      await fetchAll();
+      clearInterval(_refreshTimer);
+      _refreshTimer = setInterval(fetchAll, 5 * 60 * 1000);
+    }
+
+    async function fetchAll() {
+      const statusDot  = document.getElementById('statusDot');
+      const statusText = document.getElementById('statusText');
+      const pricesInfo = document.getElementById('pricesInfo');
+      if (!statusDot) return;
+
+      statusDot.className = 'status-dot loading';
+      statusText.textContent = 'Consultando data912.com…';
+
+      const s = AppState.getState();
+      const newPrices = {};
+      let anyOk = false, totalSymbols = 0;
+
+      for (const ep of ENDPOINTS) {
+        try {
+          const r = await fetch(ep.url, { mode: 'cors' });
+          if (!r.ok) continue;
+          const arr = await r.json();
+          if (!Array.isArray(arr)) continue;
+          anyOk = true;
+          arr.forEach(item => {
+            const sym = item.symbol || item.ticker || item.s;
+            const price = item.c ?? item.close ?? item.last ?? item.px;
+            if (sym && price != null && Number.isFinite(Number(price))) {
+              newPrices[sym] = { price: Number(price), source: 'live', ts: Date.now(), market: ep.tag };
+              totalSymbols++;
+            }
+          });
+        } catch (err) { console.warn('Prices fetch error:', ep.url, err); }
+      }
+
+      if (!anyOk) {
+        statusDot.className = 'status-dot error';
+        statusText.textContent = 'Sin conexión a la API';
+        pricesInfo.innerHTML = '<strong>CORS bloqueado.</strong> Usá GitHub Pages o un servidor local. Podés ingresar precios manualmente.';
+        return;
+      }
+
+      // Recalcular VN para holdings con monto_invertido sin VN
+      Object.keys(s.PORTFOLIOS).forEach(pfId => {
+        Object.keys(s.PORTFOLIOS[pfId].holdings || {}).forEach(bono => {
+          const h = s.PORTFOLIOS[pfId].holdings[bono];
+          if (!h || h.vn) return;
+          if (!h.monto_invertido) return;
+          const meta = s.BOND_META[bono] || {};
+          const mn = meta.moneda_nativa || 'USD';
+          const tickers = mn === 'ARS' ? (meta.tickers_ars || []) : (meta.tickers_usd || []);
+          for (const t of tickers) {
+            if (newPrices[t]) {
+              h.vn = Math.round(h.monto_invertido / newPrices[t].price * 100);
+              break;
+            }
+          }
+        });
+      });
+
+      // Preservar manuales no sobrescritos
+      Object.keys(s.PRICES).forEach(k => {
+        if (s.PRICES[k].source === 'manual' && !newPrices[k]) newPrices[k] = s.PRICES[k];
+      });
+      s.PRICES = { ...s.PRICES, ...newPrices };
+      s.PRICES_FETCHED_AT = Date.now();
+      Storage.save();
+
+      statusDot.className = 'status-dot live';
+      statusText.textContent = `Precios en vivo (${Object.values(s.PRICES).filter(p => p.source === 'live').length})`;
+      pricesInfo.innerHTML = `<strong>Actualizado:</strong> ${new Date(s.PRICES_FETCHED_AT).toLocaleTimeString('es-AR')} · ${totalSymbols} símbolos`;
+
+      UI.renderPortfolioInputs();
+      UI.render();
+    }
+
+    return { fetchAll, fetch5min };
+  })();
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 7. EXPORT / IMPORT
+  // ─────────────────────────────────────────────────────────────────────────────
+  const ExportImport = (() => {
+    /** CSV en formato argentino (sep=;, decimal=,, BOM UTF-8) */
+    function toCSV(rows, pfName, costs, bondMeta, prices) {
+      const SEP = ';';
+      const n = (v, d = 2) => v == null || !Number.isFinite(v) ? '' : v.toFixed(d).replace('.', ',');
+      const esc = s => /[;";\n]/.test(String(s)) ? `"${String(s).replace(/"/g, '""')}"` : String(s);
+      const fecha = iso => { const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; };
+      const s = AppState.getState();
+
+      const headers = ['Fecha','Bono','Ley','Moneda','VN','Precio_c100','Monto_Invertido',
+        'Interes_U$','Amortizacion_U$','Flujo_Total_U$',
+        'Interes_$','Amortizacion_$','Flujo_Total_$','FX_Implicito'].join(SEP);
+
+      const dataLines = rows.filter(r => r.Estado === 'Pendiente' && r.vn > 0).map(r => {
+        const h = normalizeHolding(s.PORTFOLIOS[s.ACTIVE_PF]?.holdings[r.Bono]);
+        const meta = bondMeta[r.Bono] || {};
+        const mn = meta.moneda_nativa || 'USD';
+        const currency = mn === 'ARS' ? 'ARS' : (h.currency || 'USD');
+        const priceEntry = Finance.effectivePrice(r.Bono, currency, h, meta, s.PRICES);
+        const precioV = priceEntry ? priceEntry.price : 0;
+
+        const precioUsd = mn === 'USD' ? Finance.effectivePrice(r.Bono, 'USD', h, meta, s.PRICES) : null;
+        const precioArs = mn === 'USD' ? Finance.effectivePrice(r.Bono, 'ARS', h, meta, s.PRICES) : null;
+        const fx = precioUsd && precioArs ? precioArs.price / precioUsd.price : null;
+
+        let iUsd, aUsd, tUsd, iArs, aArs, tArs;
+        if (mn === 'USD') {
+          iUsd = r.interes_calc; aUsd = r.amort_calc; tUsd = r.flujo_calc;
+          iArs = fx ? iUsd * fx : null; aArs = fx ? aUsd * fx : null; tArs = fx ? tUsd * fx : null;
+        } else {
+          iArs = r.interes_calc; aArs = r.amort_calc; tArs = r.flujo_calc;
+          iUsd = null; aUsd = null; tUsd = null;
+        }
+
+        return [fecha(r.Fecha_Pago), esc(r.Bono), esc(r.Ley), mn,
+          n(r.vn, 0), n(precioV, 2), n(r.vn * precioV / 100, 2),
+          n(iUsd, 2), n(aUsd, 2), n(tUsd, 2),
+          n(iArs, 2), n(aArs, 2), n(tArs, 2), n(fx, 2)].join(SEP);
+      });
+
+      const BOM = '\uFEFF';
+      return BOM + [headers, ...dataLines].join('\r\n');
+    }
+
+    function downloadCSV(content, filename) {
+      const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    /** Excel usando SheetJS (cargado bajo demanda) */
+    async function toExcel(rows, pfName) {
+      // Cargar SheetJS si no está disponible
+      if (!window.XLSX) {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+          s.onload = resolve; s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      }
+      const st = AppState.getState();
+      const pending = rows.filter(r => r.Estado === 'Pendiente' && r.vn > 0);
+      const wsData = [
+        ['Fecha','Bono','Moneda','VN','Precio c/100','Monto Invertido','Interés U$','Amort U$','Flujo U$','Interés $','Amort $','Flujo $'],
+        ...pending.map(r => {
+          const meta = st.BOND_META[r.Bono] || {};
+          const mn = meta.moneda_nativa || 'USD';
+          return [r.Fecha_Pago, r.Bono, mn, r.vn, '', r.vn * 0 / 100,
+            mn === 'USD' ? r.interes_calc : null, mn === 'USD' ? r.amort_calc : null, mn === 'USD' ? r.flujo_calc : null,
+            mn === 'ARS' ? r.interes_calc : null, mn === 'ARS' ? r.amort_calc : null, mn === 'ARS' ? r.flujo_calc : null];
+        })
+      ];
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      ws['!cols'] = [{ wch: 12 }, { wch: 22 }, { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 16 },
+        { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
+      XLSX.utils.book_append_sheet(wb, ws, 'Flujos');
+      XLSX.writeFile(wb, `cartera_${(pfName || 'export').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+
+    /** Exportar cartera activa como JSON */
+    function exportJSON() {
+      const s = AppState.getState();
+      const pf = s.PORTFOLIOS[s.ACTIVE_PF];
+      if (!pf) return;
+      const payload = JSON.stringify({ version: 1, ts: Date.now(), portfolio: pf }, null, 2);
+      const blob = new Blob([payload], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `cartera_${pf.name.replace(/\s+/g,'_')}.json`; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    /** Importar cartera desde JSON */
+    function importJSON(file) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const { portfolio } = JSON.parse(e.target.result);
+          if (!portfolio?.name) throw new Error('Formato inválido');
+          const s = AppState.getState();
+          const id = 'pf_' + Date.now();
+          s.PORTFOLIOS[id] = portfolio;
+          s.ACTIVE_PF = id;
+          Storage.save();
+          UI.renderTabs();
+          UI.renderPortfolioInputs();
+          UI.switchToPortfolioAndRender();
+          alert(`Cartera "${portfolio.name}" importada correctamente.`);
+        } catch (err) {
+          alert('Error al importar: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    /** Generar link compartible con estado serializado en hash */
+    function shareLink() {
+      const s = AppState.getState();
+      const pf = s.PORTFOLIOS[s.ACTIVE_PF];
+      if (!pf) return;
+      const payload = btoa(JSON.stringify({
+        n: pf.name,
+        h: Object.fromEntries(
+          Object.entries(pf.holdings).map(([k, v]) => [k, { vn: v.vn, c: v.currency }])
+        )
+      }));
+      const url = `${location.origin}${location.pathname}#share=${payload}`;
+      navigator.clipboard.writeText(url).then(() => alert('Link copiado al portapapeles.')).catch(() => {
+        prompt('Copiá este link:', url);
+      });
+    }
+
+    /** Intentar cargar una cartera compartida del hash al iniciar */
+    function tryLoadFromHash() {
+      const m = location.hash.match(/^#share=(.+)$/);
+      if (!m) return false;
+      try {
+        const { n, h } = JSON.parse(atob(m[1]));
+        const s = AppState.getState();
+        const id = 'pf_shared_' + Date.now();
+        s.PORTFOLIOS[id] = {
+          name: n + ' (compartida)',
+          holdings: Object.fromEntries(Object.entries(h).map(([k, v]) => [k, { vn: v.vn, currency: v.c || 'USD' }]))
+        };
+        s.ACTIVE_PF = id;
+        history.replaceState(null, '', location.pathname);
+        return true;
+      } catch { return false; }
+    }
+
+    return { toCSV, downloadCSV, toExcel, exportJSON, importJSON, shareLink, tryLoadFromHash };
+  })();
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 8. SCENARIOS — sliders con recálculo en tiempo real
+  // ─────────────────────────────────────────────────────────────────────────────
+  const Scenarios = (() => {
+    function init() {
+      const scenarioInputs = [
+        { id: 'scenTasa', key: 'tasaDescuento', display: 'scenTasaVal', suffix: '%' },
+        { id: 'scenInflacion', key: 'inflacionDelta', display: 'scenInflVal', suffix: '%' },
+        { id: 'scenPrecio', key: 'precioDelta', display: 'scenPrecioVal', suffix: '%' },
+      ];
+      scenarioInputs.forEach(({ id, key, display, suffix }) => {
+        const el = document.getElementById(id);
+        const valEl = document.getElementById(display);
+        if (!el) return;
+        el.addEventListener('input', () => {
+          const v = parseFloat(el.value) || 0;
+          AppState.getState().SCENARIO[key] = v;
+          if (valEl) valEl.textContent = (v >= 0 ? '+' : '') + v + suffix;
+          const anyActive = Object.values(AppState.getState().SCENARIO).some(v => typeof v === 'number' && v !== 0);
+          AppState.getState().SCENARIO.active = anyActive;
+          document.getElementById('scenActiveBadge')?.classList.toggle('visible', anyActive);
+          UI.render();
+        });
+      });
+
+      document.getElementById('btnResetScenario')?.addEventListener('click', () => {
+        ['scenTasa','scenInflacion','scenPrecio'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) { el.value = 0; el.dispatchEvent(new Event('input')); }
+        });
+      });
+    }
+
+    /**
+     * Aplica el escenario a un flujo antes de procesarlo.
+     * Retorna el flujo ajustado (copia, no muta el original).
+     */
+    function applyToRow(r) {
+      const sc = AppState.getState().SCENARIO;
+      if (!sc.active) return r;
+      const meta = AppState.getState().BOND_META[r.Bono] || {};
+      const esCER = meta.tipo === 'BONCER' || meta.tipo === 'BONCER cero';
+
+      // Factor de inflación de escenario (delta sobre la inflación base)
+      const inflExtra = esCER ? Finance.factorInflacion(r.Fecha_Pago, sc.inflacionDelta) : 1;
+
+      // Factor de descuento adicional: reduce el valor presente de flujos futuros
+      const today = new Date(); today.setHours(0,0,0,0);
+      const dias = Math.max(0, (new Date(r.Fecha_Pago + 'T00:00:00') - today) / 86400000);
+      const factorDesc = sc.tasaDescuento !== 0 ? 1 / Math.pow(1 + sc.tasaDescuento / 100, dias / 365) : 1;
+
+      return {
+        ...r,
+        interes_calc:  r.interes_calc  * inflExtra * factorDesc,
+        amort_calc:    r.amort_calc    * inflExtra * factorDesc,
+        flujo_calc:    r.flujo_calc    * inflExtra * factorDesc,
+        _scenario: true,
+      };
+    }
+
+    /** Precio ajustado por escenario */
+    function adjustedPrice(price) {
+      const sc = AppState.getState().SCENARIO;
+      if (!sc.active || sc.precioDelta === 0) return price;
+      return { ...price, price: price.price * (1 + sc.precioDelta / 100) };
+    }
+
+    return { init, applyToRow, adjustedPrice };
+  })();
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // HELPERS globales (usados por múltiples módulos)
+  // ─────────────────────────────────────────────────────────────────────────────
+  const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const fmt = (n, dec = 2) => n == null || !Number.isFinite(n) ? '–' : Number(n).toLocaleString('es-AR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  const fmtMoney = (n, curr = 'USD', dec = 2) => Math.abs(n ?? 0) < 0.00001 ? '–' : (curr === 'ARS' ? '$ ' : 'U$ ') + fmt(n, dec);
+  const fmtPct = n => (n * 100).toFixed(2) + '%';
+  const fmtFecha = iso => { const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; };
+  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function normalizeHolding(h) {
+    if (!h) return { vn: 0, currency: 'USD' };
+    if (typeof h === 'number') return { vn: h, currency: 'USD' };
+    return { vn: h.vn || 0, currency: h.currency || 'USD', precio_manual_usd: h.precio_manual_usd ?? h.precio_manual, precio_manual_ars: h.precio_manual_ars, monto_invertido: h.monto_invertido };
+  }
+  function effectivePrice(bono, currency) {
+    const s = AppState.getState();
+    const h = normalizeHolding(s.PORTFOLIOS[s.ACTIVE_PF]?.holdings[bono]);
+    const meta = s.BOND_META[bono] || {};
+    let p = Finance.effectivePrice(bono, currency, h, meta, s.PRICES);
+    if (p && s.SCENARIO.active) p = Scenarios.adjustedPrice(p);
+    return p;
+  }
+  function currentPF() { const s = AppState.getState(); return s.PORTFOLIOS[s.ACTIVE_PF]; }
+  function holdings() { return currentPF()?.holdings || {}; }
+  function factorInflacion(fechaIso) {
+    const s = AppState.getState();
+    const inflBase = s.COSTS.inflacion;
+    const inflDelta = s.SCENARIO.active ? s.SCENARIO.inflacionDelta : 0;
+    return Finance.factorInflacion(fechaIso, inflBase + inflDelta);
+  }
+  function calcCosts(monto) { return Finance.calcCosts(monto, AppState.getState().COSTS); }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 9. UI — TODO el rendering (extraído del HTML original y extendido)
+  // ─────────────────────────────────────────────────────────────────────────────
+  /**
+   * NOTA: Esta sección es el mayor bloque del archivo.
+   * Para migracion futura a React:
+   *   - Cada función render* se convierte en un componente funcional.
+   *   - AppState se reemplaza por Zustand/Redux.
+   *   - Los gráficos Chart.js se envuelven en useEffect.
+   */
+  const UI = (() => {
+    // ── Charts ──
+    const COLORS = { int: '#5aa4e8', amort: '#5fc387', total: '#f5b942' };
+    const gridOpts = { color: '#1a1f2b', drawBorder: false };
+    let chartTimeline, chartMonthly, chartBonds, chartMonthlyUSD, chartMonthlyARS;
+
+    Chart.defaults.color = '#8a93a6';
+    Chart.defaults.borderColor = '#232937';
+    Chart.defaults.font.family = "'Manrope', sans-serif";
+    Chart.defaults.font.size = 11;
+
+    function afterBodyBonos(ctxArr, chart, sym) {
+      if (!ctxArr.length || !chart._bonosPorMes) return [];
+      const idx = ctxArr[0].dataIndex;
+      const bonos = chart._bonosPorMes[idx];
+      if (!bonos?.length) return [];
+      const agg = {};
+      bonos.forEach(b => {
+        if (!agg[b.bono]) agg[b.bono] = { int: 0, amort: 0, moneda: b.moneda };
+        agg[b.bono].int += b.int; agg[b.bono].amort += b.amort;
+      });
+      return ['', '─── Por bono ───', ...Object.keys(agg).sort().map(name => {
+        const a = agg[name];
+        const s = a.moneda === 'ARS' ? '$' : 'U$';
+        return `${name}: ${[a.int > 0.001 ? `int ${s}${fmt(a.int, 0)}` : '', a.amort > 0.001 ? `amort ${s}${fmt(a.amort, 0)}` : ''].filter(Boolean).join(' + ')}`;
+      })];
+    }
+
+    function createCharts() {
+      const mkBase = (id, datasets, extraOpts = {}) =>
+        new Chart(document.getElementById(id).getContext('2d'), {
+          type: 'bar',
+          data: { labels: [], datasets },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: '#141821', borderColor: '#2f3747',
+                borderWidth: 1, padding: 12,
+                ...extraOpts.tooltipOpts,
+              },
+            },
+            scales: extraOpts.scales || {
+              x: { grid: gridOpts, ticks: { maxRotation: 60, minRotation: 60 }, stacked: true },
+              y: { grid: gridOpts, stacked: true, ticks: { callback: v => fmt(v, 0) } }
+            },
+            onClick: extraOpts.onClick,
+          }
+        });
+
+      chartTimeline = new Chart(document.getElementById('chartTimeline').getContext('2d'), {
+        type: 'bar',
+        data: { labels: [], datasets: [
+          { label: 'Interés',       data: [], backgroundColor: COLORS.int, stack: 'a', borderRadius: 3 },
+          { label: 'Amortización',  data: [], backgroundColor: COLORS.amort, stack: 'a', borderRadius: 3 }
+        ]},
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#141821', borderColor: '#2f3747', borderWidth: 1, padding: 12,
+              callbacks: {
+                title: c => c[0].label,
+                label: ctx => ctx.dataset.label + ': ' + fmt(ctx.parsed.y, 2),
+                afterBody: ctxArr => {
+                  if (!ctxArr.length || !chartTimeline._bonosPorFecha) return [];
+                  const bonos = chartTimeline._bonosPorFecha[ctxArr[0].dataIndex];
+                  if (!bonos?.length) return [];
+                  const agg = {};
+                  bonos.forEach(b => {
+                    if (!agg[b.bono]) agg[b.bono] = { int: 0, amort: 0, total: 0, moneda: b.moneda };
+                    agg[b.bono].int += b.int; agg[b.bono].amort += b.amort; agg[b.bono].total += b.total;
+                  });
+                  return ['', '─── Detalle por bono ───', ...Object.keys(agg).sort().map(name => {
+                    const a = agg[name]; const s = a.moneda === 'ARS' ? '$' : 'U$';
+                    return `${name} (${a.moneda}): ${s} ${fmt(a.total, 2)}`;
+                  })];
+                }
+              }
+            },
+          },
+          scales: {
+            x: { grid: gridOpts, ticks: { maxRotation: 45, minRotation: 45 }, stacked: true },
+            y: { grid: gridOpts, stacked: true, ticks: { callback: v => fmt(v, 0) } }
+          },
+          // Click en barra → filtrar tabla por esa fecha
+          onClick: (evt, elements) => {
+            if (!elements.length) return;
+            const label = chartTimeline.data.labels[elements[0].index];
+            document.getElementById('tableInfo').textContent = `Filtrado por: ${label}`;
+          }
+        }
+      });
+
+      chartMonthly = new Chart(document.getElementById('chartMonthly').getContext('2d'), {
+        type: 'bar',
+        data: { labels: [], datasets: [{ label: 'Flujo', data: [], backgroundColor: COLORS.total, borderRadius: 3 }]},
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#141821', borderColor: '#2f3747', borderWidth: 1, padding: 10,
+              callbacks: {
+                title: c => c[0].label,
+                label: ctx => 'Total: ' + fmt(ctx.parsed.y, 0),
+                afterBody: ctxArr => afterBodyBonos(ctxArr, chartMonthly, ''),
+              }
+            }
+          },
+          scales: {
+            x: { grid: gridOpts, ticks: { maxRotation: 60, minRotation: 60 } },
+            y: { grid: gridOpts, ticks: { callback: v => fmt(v, 0) } }
+          }
+        }
+      });
+
+      chartBonds = new Chart(document.getElementById('chartBonds').getContext('2d'), {
+        type: 'bar',
+        data: { labels: [], datasets: [
+          { label: 'Interés',      data: [], backgroundColor: COLORS.int,  stack: 'a' },
+          { label: 'Amortización', data: [], backgroundColor: COLORS.amort, stack: 'a' }
+        ]},
+        options: {
+          indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#141821', borderColor: '#2f3747', borderWidth: 1,
+              callbacks: { label: ctx => ctx.dataset.label + ': ' + fmt(ctx.parsed.x, 2) }
+            }
+          },
+          scales: {
+            x: { grid: gridOpts, stacked: true, ticks: { callback: v => fmt(v, 0) } },
+            y: { grid: { display: false }, stacked: true }
+          }
+        }
+      });
+
+      chartMonthlyUSD = new Chart(document.getElementById('chartMonthlyUSD').getContext('2d'), {
+        type: 'bar',
+        data: { labels: [], datasets: [
+          { label: 'Interés U$', data: [], backgroundColor: COLORS.int,  stack: 'a', borderRadius: 2 },
+          { label: 'Amort. U$',  data: [], backgroundColor: COLORS.amort, stack: 'a', borderRadius: 2 }
+        ]},
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#141821', borderColor: '#2f3747', borderWidth: 1, padding: 10,
+              callbacks: {
+                title: c => c[0].label,
+                label: ctx => ctx.dataset.label + ': ' + fmt(ctx.parsed.y, 2),
+                afterBody: ctxArr => afterBodyBonos(ctxArr, chartMonthlyUSD, 'U$'),
+              }
+            }
+          },
+          scales: {
+            x: { grid: gridOpts, ticks: { maxRotation: 60, minRotation: 60 }, stacked: true },
+            y: { grid: gridOpts, stacked: true, ticks: { callback: v => 'U$ ' + fmt(v, 0) } }
+          }
+        }
+      });
+
+      chartMonthlyARS = new Chart(document.getElementById('chartMonthlyARS').getContext('2d'), {
+        type: 'bar',
+        data: { labels: [], datasets: [
+          { label: 'Interés $', data: [], backgroundColor: '#b88ee8', stack: 'a', borderRadius: 2 },
+          { label: 'Amort. $',  data: [], backgroundColor: '#e87066', stack: 'a', borderRadius: 2 }
+        ]},
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#141821', borderColor: '#2f3747', borderWidth: 1, padding: 10,
+              callbacks: {
+                title: c => c[0].label,
+                label: ctx => ctx.dataset.label + ': $ ' + fmt(ctx.parsed.y, 0),
+                afterBody: ctxArr => afterBodyBonos(ctxArr, chartMonthlyARS, '$'),
+              }
+            }
+          },
+          scales: {
+            x: { grid: gridOpts, ticks: { maxRotation: 60, minRotation: 60 }, stacked: true },
+            y: { grid: gridOpts, stacked: true, ticks: { callback: v => '$ ' + fmt(v, 0) } }
+          }
+        }
+      });
+    }
+
+    // ── Core filter + scale ──
+    function scaleRow(r) {
+      const s = AppState.getState();
+      const hs = holdings();
+      const h = normalizeHolding(hs[r.Bono]);
+      const vn = h.vn || 0;
+      const factor = s.VIEW_MODE === 'portfolio' ? vn / 100 : 1;
+      const meta = s.BOND_META[r.Bono] || {};
+      const monedaNativa = r.Moneda_Nativa || meta.moneda_nativa || 'USD';
+      const esCER = meta.tipo === 'BONCER' || meta.tipo === 'BONCER cero';
+      const fInfla = esCER ? factorInflacion(r.Fecha_Pago) : 1;
+      const scaled = {
+        ...r, vn, moneda_nativa: monedaNativa, es_cer: esCER, f_inflacion: fInfla,
+        currency: monedaNativa === 'ARS' ? 'ARS' : (h.currency || 'USD'),
+        interes_calc: r.Interes_USD * factor * fInfla,
+        amort_calc:   r.Amortizacion_USD * factor * fInfla,
+        flujo_calc:   r.Flujo_Total_USD * factor * fInfla,
+        factor,
+      };
+      return s.SCENARIO.active ? Scenarios.applyToRow(scaled) : scaled;
+    }
+
+    function getFiltered() {
+      const s = AppState.getState();
+      const estado = document.getElementById('fEstado')?.value || 'Pendiente';
+      const tipo = document.getElementById('fTipo')?.value || 'todos';
+      let rows = s.DATA.filter(r => {
+        if (s.FILTERS.anio.size > 0 && !s.FILTERS.anio.has(String(r.Anio))) return false;
+        if (s.FILTERS.mes.size > 0 && !s.FILTERS.mes.has(String(r.Mes))) return false;
+        if (s.FILTERS.dia.size > 0) {
+          if (!s.FILTERS.dia.has(String(new Date(r.Fecha_Pago + 'T00:00:00').getDate()))) return false;
+        }
+        if (s.FILTERS.bono.size > 0 && !s.FILTERS.bono.has(r.Bono)) return false;
+        if (estado !== 'todos' && r.Estado !== estado) return false;
+        if (tipo === 'interes' && r.Interes_USD === 0) return false;
+        if (tipo === 'amort'   && r.Amortizacion_USD === 0) return false;
+        return true;
+      }).map(scaleRow);
+
+      if (s.VIEW_MODE === 'portfolio') rows = rows.filter(r => r.vn > 0);
+      // Filtro de moneda timeline (aplica solo al cronograma, no a la tabla)
+      return rows;
+    }
+
+    function switchToPortfolioAndRender() {
+      const s = AppState.getState();
+      if (s.VIEW_MODE !== 'portfolio') {
+        s.VIEW_MODE = 'portfolio';
+        document.querySelectorAll('.toggle-btn[data-mode]').forEach(b => b.classList.remove('active'));
+        document.querySelector('.toggle-btn[data-mode="portfolio"]')?.classList.add('active');
+      }
+      render();
+    }
+
+    // ── Main render ──
+    function render() {
+      const s = AppState.getState();
+      const rows = getFiltered();
+      const isPortfolio = s.VIEW_MODE === 'portfolio';
+
+      // Banner de modo cartera
+      const banner = document.getElementById('modeBanner');
+      if (banner) {
+        if (isPortfolio) {
+          banner.classList.add('visible');
+          const pf = currentPF();
+          const totalVN = Object.values(pf?.holdings || {}).reduce((a, h) => a + (normalizeHolding(h).vn || 0), 0);
+          const bonosEn = Object.keys(pf?.holdings || {}).filter(k => normalizeHolding(pf.holdings[k]).vn > 0).length;
+          document.getElementById('modeBannerText').textContent = `Modo CARTERA · ${pf?.name || ''} · ${bonosEn} bonos · VN ${totalVN.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
+          if (s.SCENARIO.active) document.getElementById('modeBannerText').textContent += ' · ⚠ ESCENARIO ACTIVO';
+        } else {
+          banner.classList.remove('visible');
+        }
+      }
+
+      // KPIs base
+      const totalesUSD = { int: 0, amort: 0, total: 0 };
+      const totalesARS = { int: 0, amort: 0, total: 0 };
+      rows.forEach(r => {
+        const t = r.moneda_nativa === 'ARS' ? totalesARS : totalesUSD;
+        t.int += r.interes_calc; t.amort += r.amort_calc; t.total += r.flujo_calc;
+      });
+
+      const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+      const setHTML = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+
+      set('kpiTotalLabel', isPortfolio ? 'Flujo a Cobrar' : 'Flujo Total Filtrado');
+      set('kpiTotalSub', isPortfolio ? 'en moneda de cada bono' : 'cada VN 100');
+
+      const bonosEnCartera = Object.keys(holdings()).filter(k => normalizeHolding(holdings()[k]).vn > 0).length;
+
+      if (isPortfolio && bonosEnCartera === 0) {
+        ['kpiTotal','kpiInt','kpiAmort'].forEach(id => set(id, '–'));
+        set('kpiCount', '0'); set('kpiIntSub', 'Cargá tu cartera');
+        set('kpiAmortSub', '–'); set('kpiCountSub', '–');
+      } else {
+        // Flujo total (multi-moneda)
+        const lineasTotal = [];
+        if (totalesUSD.total > 0) lineasTotal.push('U$ ' + fmt(totalesUSD.total, 0));
+        if (totalesARS.total > 0) lineasTotal.push('$ ' + fmt(totalesARS.total, 0));
+        set('kpiTotal', lineasTotal.join(' + ') || '–');
+        const lineasInt = [];
+        if (totalesUSD.int > 0) lineasInt.push('U$ ' + fmt(totalesUSD.int, 0));
+        if (totalesARS.int > 0) lineasInt.push('$ ' + fmt(totalesARS.int, 0));
+        set('kpiInt', lineasInt.join(' + ') || '–');
+        const lineasAm = [];
+        if (totalesUSD.amort > 0) lineasAm.push('U$ ' + fmt(totalesUSD.amort, 0));
+        if (totalesARS.amort > 0) lineasAm.push('$ ' + fmt(totalesARS.amort, 0));
+        set('kpiAmort', lineasAm.join(' + ') || '–');
+        set('kpiCount', rows.length);
+        set('kpiIntSub', `${totalesUSD.total > 0 && totalesARS.total > 0 ? 'U$ + $' : totalesARS.total > 0 ? '$' : 'U$'}`);
+        set('kpiAmortSub', s.COSTS.inflacion > 0 ? `CER proyectado al ${s.COSTS.inflacion + (s.SCENARIO.active ? s.SCENARIO.inflacionDelta : 0)}%` : '–');
+        set('kpiCountSub', `${new Set(rows.map(r => r.Bono)).size} bonos`);
+      }
+
+      // ── KPIs financieros avanzados ──
+      if (isPortfolio && bonosEnCartera > 0) {
+        const pf = currentPF();
+        const tirProm = Finance.portfolioWeightedTIR(pf.holdings, s.BOND_META, s.PRICES, s.COSTS, s.DATA);
+        const yield_c = Finance.currentYield(pf.holdings, s.BOND_META, s.PRICES, s.DATA);
+        const dur = Finance.macaulayDuration(pf.holdings, s.BOND_META, s.PRICES, s.DATA, tirProm);
+
+        set('kpiTirProm',    tirProm !== null ? (tirProm * 100).toFixed(2) + '%' : '–');
+        set('kpiYieldCorr',  yield_c !== null ? (yield_c * 100).toFixed(2) + '%' : '–');
+        set('kpiDuration',   dur !== null ? dur.toFixed(2) + ' años' : '–');
+        set('kpiTirSub',     tirProm !== null ? 'TIR ponderada por inv.' : 'Sin precio suficiente');
+        set('kpiYieldSub',   'Cupones próx. 12m / precio');
+        set('kpiDurationSub','Macaulay · base actual/365');
+      } else {
+        ['kpiTirProm','kpiYieldCorr','kpiDuration'].forEach(id => set(id, '–'));
+      }
+
+      // ── Insights ──
+      if (isPortfolio) {
+        const insights = Insights.analyze(rows, holdings(), s.BOND_META);
+        Insights.render(insights);
+      }
+
+      // ── Charts ──
+      const TIMELINE_CURRENCY = s.TIMELINE_CURRENCY;
+      const rowsTimeline = TIMELINE_CURRENCY === 'both' ? rows : rows.filter(r => (r.moneda_nativa || 'USD') === TIMELINE_CURRENCY);
+
+      const byDate = {};
+      rowsTimeline.forEach(r => {
+        if (!byDate[r.Fecha_Pago]) byDate[r.Fecha_Pago] = { int: 0, amort: 0, bonos: [] };
+        byDate[r.Fecha_Pago].int += r.interes_calc;
+        byDate[r.Fecha_Pago].amort += r.amort_calc;
+        byDate[r.Fecha_Pago].bonos.push({ bono: r.Bono, moneda: r.moneda_nativa || 'USD', int: r.interes_calc, amort: r.amort_calc, total: r.flujo_calc });
+      });
+      const sd = Object.keys(byDate).sort();
+      chartTimeline._bonosPorFecha = sd.map(d => byDate[d].bonos);
+      chartTimeline.data.labels = sd.map(d => fmtFecha(d));
+      chartTimeline.data.datasets[0].data = sd.map(d => byDate[d].int);
+      chartTimeline.data.datasets[1].data = sd.map(d => byDate[d].amort);
+      chartTimeline.update('none'); // 'none' = sin animación → más rápido en re-renders frecuentes
+
+      const byMonth = {}, byMonthBonos = {};
+      rows.forEach(r => {
+        const key = `${r.Anio}-${String(r.Mes).padStart(2,'0')}`;
+        byMonth[key] = (byMonth[key] || 0) + r.flujo_calc;
+        if (!byMonthBonos[key]) byMonthBonos[key] = [];
+        byMonthBonos[key].push({ bono: r.Bono, moneda: r.moneda_nativa || 'USD', int: r.interes_calc, amort: r.amort_calc });
+      });
+      const sm = Object.keys(byMonth).sort();
+      const fmtMes = m => { const [y, mo] = m.split('-'); return MESES[parseInt(mo)-1] + ' ' + y; };
+      chartMonthly._bonosPorMes = sm.map(m => byMonthBonos[m] || []);
+      chartMonthly.data.labels = sm.map(fmtMes);
+      chartMonthly.data.datasets[0].data = sm.map(m => byMonth[m]);
+      chartMonthly.update('none');
+
+      const byBond = {};
+      rows.forEach(r => {
+        if (!byBond[r.Bono]) byBond[r.Bono] = { int: 0, amort: 0 };
+        byBond[r.Bono].int += r.interes_calc; byBond[r.Bono].amort += r.amort_calc;
+      });
+      const sortedBonds = Object.keys(byBond).sort((a,b) => (byBond[b].int+byBond[b].amort) - (byBond[a].int+byBond[a].amort));
+      chartBonds.data.labels = sortedBonds;
+      chartBonds.data.datasets[0].data = sortedBonds.map(b => byBond[b].int);
+      chartBonds.data.datasets[1].data = sortedBonds.map(b => byBond[b].amort);
+      chartBonds.update('none');
+
+      const byMonthUSD = {}, byMonthARS = {}, byMonthBUSD = {}, byMonthBARS = {};
+      rows.forEach(r => {
+        const key = `${r.Anio}-${String(r.Mes).padStart(2,'0')}`;
+        const mn = r.moneda_nativa || 'USD';
+        const entry = { bono: r.Bono, moneda: mn, int: r.interes_calc, amort: r.amort_calc };
+        if (mn === 'USD') {
+          if (!byMonthUSD[key]) byMonthUSD[key] = { int: 0, amort: 0 };
+          byMonthUSD[key].int += r.interes_calc; byMonthUSD[key].amort += r.amort_calc;
+          if (!byMonthBUSD[key]) byMonthBUSD[key] = [];
+          byMonthBUSD[key].push(entry);
+        } else {
+          if (!byMonthARS[key]) byMonthARS[key] = { int: 0, amort: 0 };
+          byMonthARS[key].int += r.interes_calc; byMonthARS[key].amort += r.amort_calc;
+          if (!byMonthBARS[key]) byMonthBARS[key] = [];
+          byMonthBARS[key].push(entry);
+        }
+      });
+      const smUSD = Object.keys(byMonthUSD).sort();
+      chartMonthlyUSD._bonosPorMes = smUSD.map(m => byMonthBUSD[m] || []);
+      chartMonthlyUSD.data.labels = smUSD.map(fmtMes);
+      chartMonthlyUSD.data.datasets[0].data = smUSD.map(m => byMonthUSD[m].int);
+      chartMonthlyUSD.data.datasets[1].data = smUSD.map(m => byMonthUSD[m].amort);
+      chartMonthlyUSD.update('none');
+      const smARS = Object.keys(byMonthARS).sort();
+      chartMonthlyARS._bonosPorMes = smARS.map(m => byMonthBARS[m] || []);
+      chartMonthlyARS.data.labels = smARS.map(fmtMes);
+      chartMonthlyARS.data.datasets[0].data = smARS.map(m => byMonthARS[m].int);
+      chartMonthlyARS.data.datasets[1].data = smARS.map(m => byMonthARS[m].amort);
+      chartMonthlyARS.update('none');
+
+      // ── Tabla ──
+      renderTable(rows, isPortfolio, totalesUSD, totalesARS);
+    }
+
+    function renderTable(rows, isPortfolio, totalesUSD, totalesARS) {
+      const thead = document.getElementById('tablaThead');
+      const tbody = document.getElementById('tablaTbody');
+      if (!thead || !tbody) return;
+
+      thead.innerHTML = isPortfolio ? `<tr>
+        <th>Fecha</th><th>Bono</th><th>Mon.</th><th style="text-align:right">VN</th><th>Ley</th>
+        <th style="text-align:right">Interés</th><th style="text-align:right">Amort.</th><th style="text-align:right">Flujo</th>
+      </tr>` : `<tr>
+        <th>Fecha</th><th>Bono</th><th>Tipo</th><th>Ley</th><th>Estado</th>
+        <th style="text-align:right">Residual</th><th style="text-align:right">Tasa</th>
+        <th style="text-align:right">Interés</th><th style="text-align:right">Amort</th><th style="text-align:right">Flujo</th>
+      </tr>`;
+
+      const sorted = [...rows].sort((a,b) => a.Fecha_Pago.localeCompare(b.Fecha_Pago) || a.Bono.localeCompare(b.Bono));
+      if (!sorted.length) {
+        const span = isPortfolio ? 8 : 10;
+        tbody.innerHTML = `<tr><td colspan="${span}" class="empty-state"><h3>Sin resultados</h3><div>Cargá bonos o ajustá los filtros.</div></td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = sorted.map(r => {
+        if (isPortfolio) {
+          const mon = r.moneda_nativa || 'USD';
+          const cerNote = r.es_cer && r.f_inflacion > 1.001 ? ` <span style="color:var(--purple);font-size:9px">×${r.f_inflacion.toFixed(2)}</span>` : '';
+          const scenNote = r._scenario ? ` <span style="color:var(--red);font-size:9px">~</span>` : '';
+          return `<tr class="${r.Estado === 'Pagado' ? 'paid' : ''}">
+            <td class="mono">${fmtFecha(r.Fecha_Pago)}</td>
+            <td>${escapeHtml(r.Bono)}${cerNote}${scenNote}</td>
+            <td><span class="badge ${mon === 'ARS' ? 'ars' : 'usd'}">${mon}</span></td>
+            <td class="num">${r.vn.toLocaleString('es-AR')}</td>
+            <td>${r.Ley}</td>
+            <td class="num">${fmtMoney(r.interes_calc, mon, 2)}</td>
+            <td class="num">${fmtMoney(r.amort_calc, mon, 2)}</td>
+            <td class="num highlight">${fmtMoney(r.flujo_calc, mon, 2)}</td>
+          </tr>`;
+        } else {
+          return `<tr class="${r.Estado === 'Pagado' ? 'paid' : ''}">
+            <td class="mono">${fmtFecha(r.Fecha_Pago)}</td>
+            <td>${escapeHtml(r.Bono)}</td>
+            <td>${r.Tipo_Instrumento}</td><td>${r.Ley}</td>
+            <td><span class="badge ${r.Estado === 'Pendiente' ? 'pending' : 'paid'}">${r.Estado}</span></td>
+            <td class="num">${fmtPct(r.Residual_Inicio_Pct)}</td>
+            <td class="num">${(r.Tasa_Anual_Pct*100).toFixed(3)}%</td>
+            <td class="num">${fmtMoney(r.Interes_USD, r.Moneda_Nativa||'USD', 4)}</td>
+            <td class="num">${fmtMoney(r.Amortizacion_USD, r.Moneda_Nativa||'USD', 4)}</td>
+            <td class="num highlight">${fmtMoney(r.Flujo_Total_USD, r.Moneda_Nativa||'USD', 4)}</td>
+          </tr>`;
+        }
+      }).join('');
+
+      const info = document.getElementById('tableInfo');
+      if (info) {
+        const parts = [];
+        if (totalesUSD.total > 0) parts.push('U$ ' + fmt(totalesUSD.total, 0));
+        if (totalesARS.total > 0) parts.push('$ ' + fmt(totalesARS.total, 0));
+        info.textContent = `${sorted.length} pagos · ${new Set(sorted.map(r => r.Bono)).size} bonos · ${parts.join(' + ')}`;
+      }
+    }
+
+    // ── renderPortfolioInputs: igual que el original pero usando AppState ──
+    function renderPortfolioInputs() {
+      const s = AppState.getState();
+      const pf = currentPF();
+      if (!pf) return;
+
+      const pfNameInput = document.getElementById('pfNameInput');
+      const pfTitle = document.getElementById('pfTitle');
+      if (pfNameInput) pfNameInput.value = pf.name;
+      if (pfTitle) pfTitle.textContent = pf.name;
+
+      const btnDelete = document.getElementById('btnDeletePf');
+      if (btnDelete) btnDelete.style.display = Object.keys(s.PORTFOLIOS).length > 1 ? '' : 'none';
+
+      const container = document.getElementById('portfolioSections');
+      if (!container) return;
+
+      const grupos = { 'Tesoro USD': [], 'BOPREAL': [], 'LECAPs / BONCAPs': [], 'BONCER (CER)': [] };
+      Object.keys(s.BOND_META).forEach(b => {
+        const m = s.BOND_META[b];
+        if (m.tipo === 'BOPREAL') grupos['BOPREAL'].push(b);
+        else if (m.tipo === 'LECAP' || m.tipo === 'BONCAP') grupos['LECAPs / BONCAPs'].push(b);
+        else if (m.tipo === 'BONCER' || m.tipo === 'BONCER cero') grupos['BONCER (CER)'].push(b);
+        else grupos['Tesoro USD'].push(b);
+      });
+
+      let html = '';
+      Object.entries(grupos).forEach(([grupoNombre, bonos]) => {
+        if (!bonos.length) return;
+        html += `<div class="portfolio-section"><div class="portfolio-section-title">${grupoNombre}</div><div class="portfolio-inputs">`;
+        bonos.forEach(b => {
+          const meta = s.BOND_META[b];
+          const h = normalizeHolding(pf.holdings[b]);
+          const isArsNative = meta.moneda_nativa === 'ARS';
+          const currency = isArsNative ? 'ARS' : (h.currency || 'USD');
+          const vn = h.vn || 0;
+          const manualKey = currency === 'ARS' ? 'precio_manual_ars' : 'precio_manual_usd';
+          const precioManual = h[manualKey];
+          const precioMercado = Finance.effectivePrice(b, currency, h, meta, s.PRICES);
+          // Aplicar escenario al precio mostrado
+          const precioMercadoAdj = precioMercado && s.SCENARIO.active ? Scenarios.adjustedPrice(precioMercado) : precioMercado;
+          const precioFinal = precioManual != null ? precioManual : (precioMercadoAdj ? precioMercadoAdj.price : null);
+          const precioSource = precioManual != null ? 'manual' : (precioMercado ? 'live' : null);
+          const sym = currency === 'ARS' ? '$' : 'U$';
+          const hasVal = vn > 0 ? 'has-value' : '';
+          const montoCalculado = vn > 0 && precioFinal != null ? (vn * precioFinal / 100) : 0;
+          const montoGuardado = h.monto_invertido || 0;
+          const montoMostrar = montoCalculado > 0 ? montoCalculado.toFixed(2) : (montoGuardado > 0 ? montoGuardado.toFixed(2) : '');
+          const tipoBadge = meta.tipo ? `<span style="font-size:9px;color:var(--text-faint);font-family:'JetBrains Mono',monospace;margin-left:4px">${meta.tipo}${meta.es_custom ? ' ★' : ''}</span>` : '';
+          const currencyToggle = isArsNative
+            ? `<span class="badge ars" style="font-size:9px;padding:2px 6px">ARS</span>`
+            : `<div class="bond-currency-toggle" data-nomodal>
+                <button type="button" class="${currency==='USD'?'active':''}" data-currency-btn="USD" data-bono="${b}">U$</button>
+                <button type="button" class="${currency==='ARS'?'active':''}" data-currency-btn="ARS" data-bono="${b}">$</button>
+               </div>`;
+          let priceLabel = '';
+          if (precioFinal != null) {
+            const icon = precioSource === 'manual' ? '✎' : (s.SCENARIO.active ? '⚠' : '●');
+            priceLabel = `<div class="bond-input-price ${precioSource}">${icon} ${sym}${precioFinal.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})} (${precioSource}${s.SCENARIO.active&&s.SCENARIO.precioDelta!==0?` ${s.SCENARIO.precioDelta>0?'+':''}${s.SCENARIO.precioDelta}%`:''})${meta.tipo==='LECAP'||meta.tipo==='BONCAP'?` <span style="color:var(--accent-dim);font-size:9px">TEM implícita calculada en popup</span>`:''}</div>`;
+          } else {
+            priceLabel = `<div class="bond-input-price">Sin precio · ingresá manualmente</div>`;
+          }
+
+          html += `<div class="bond-input ${hasVal}" data-bono="${b}" data-open-modal>
+            <div class="bond-input-header"><span class="bond-input-name">${escapeHtml(b)}${tipoBadge}</span>${currencyToggle}</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-faint);margin-bottom:4px">Vto ${meta.venc}</div>
+            ${priceLabel}
+            <div class="bond-input-row" style="margin-bottom:4px" data-nomodal>
+              <span class="prefix">VN</span>
+              <input type="number" class="vn-input" data-bono="${b}" data-field="vn" value="${vn||''}" placeholder="0" min="0" step="100">
+            </div>
+            <div class="bond-input-row" style="margin-bottom:4px" data-nomodal title="Monto a invertir. Calcula VN automáticamente.">
+              <span class="prefix" style="color:var(--accent-dim)">${sym}</span>
+              <input type="number" class="monto-input" data-bono="${b}" value="${montoMostrar}" placeholder="monto a invertir" min="0" step="0.01" style="border-color:rgba(245,185,66,0.2)">
+            </div>
+            <div class="bond-input-row" data-nomodal>
+              <span class="prefix" style="font-size:10px;opacity:.7">Px</span>
+              <input type="number" class="price-input" data-bono="${b}" data-field="${manualKey}" value="${precioManual!=null?precioManual:''}" placeholder="${precioMercado?precioMercado.price.toFixed(2):'precio c/100 VN'}" min="0" step="0.01">
+            </div>
+            <div class="bond-input-open-hint">→ ver calc</div>
+          </div>`;
+        });
+        html += '</div></div>';
+      });
+      container.innerHTML = html;
+      wirePortfolioInputs(container);
+      updateCarteraTotal();
+    }
+
+    function wirePortfolioInputs(container) {
+      // Monto input
+      container.querySelectorAll('.monto-input').forEach(inp => {
+        inp.addEventListener('input', e => {
+          const bono = e.target.dataset.bono;
+          const monto = parseFloat(e.target.value);
+          const s = AppState.getState();
+          const pf = currentPF();
+          const meta = s.BOND_META[bono] || {};
+          const mn = meta.moneda_nativa || 'USD';
+          if (!pf.holdings[bono] || typeof pf.holdings[bono]==='number') pf.holdings[bono] = normalizeHolding(pf.holdings[bono]);
+          const h = pf.holdings[bono];
+          if (!Number.isFinite(monto) || monto <= 0) {
+            delete h.vn; delete h.monto_invertido;
+            if (!h.precio_manual_usd && !h.precio_manual_ars) delete pf.holdings[bono];
+            Storage.save(); updateCarteraTotal(); switchToPortfolioAndRender(); return;
+          }
+          h.monto_invertido = monto;
+          const currency = mn === 'ARS' ? 'ARS' : (h.currency || 'USD');
+          const precio = Finance.effectivePrice(bono, currency, h, meta, s.PRICES);
+          if (precio?.price > 0) {
+            h.vn = Math.round(monto / precio.price * 100);
+            const vnInp = e.target.closest('.bond-input')?.querySelector('.vn-input');
+            if (vnInp) vnInp.value = h.vn;
+            const aviso = e.target.closest('.bond-input')?.querySelector('.monto-aviso');
+            if (aviso) aviso.style.display = 'none';
+          } else {
+            const aviso = e.target.closest('.bond-input')?.querySelector('.monto-aviso');
+            if (aviso) { aviso.style.display = 'block'; aviso.textContent = '⚠ Sin precio · el VN se calculará al actualizar precios.'; }
+          }
+          Storage.save(); updateCarteraTotal(); switchToPortfolioAndRender();
+        });
+        inp.addEventListener('blur', () => { renderPortfolioInputs(); render(); });
+      });
+
+      // VN + precio manual
+      container.querySelectorAll('.vn-input, .price-input').forEach(inp => {
+        inp.addEventListener('input', e => {
+          const bono = e.target.dataset.bono;
+          const field = e.target.dataset.field;
+          const val = parseFloat(e.target.value);
+          const pf = currentPF();
+          if (!pf.holdings[bono] || typeof pf.holdings[bono]==='number') pf.holdings[bono] = normalizeHolding(pf.holdings[bono]);
+          if (Number.isFinite(val) && val > 0) {
+            pf.holdings[bono][field] = val;
+            if (field === 'vn') {
+              delete pf.holdings[bono].monto_invertido;
+              const s = AppState.getState();
+              const meta = s.BOND_META[bono] || {};
+              const mn = meta.moneda_nativa || 'USD';
+              const currency = mn === 'ARS' ? 'ARS' : (pf.holdings[bono].currency || 'USD');
+              const precio = Finance.effectivePrice(bono, currency, pf.holdings[bono], meta, s.PRICES);
+              if (precio?.price > 0) {
+                const montoInp = e.target.closest('.bond-input')?.querySelector('.monto-input');
+                if (montoInp) montoInp.value = (val * precio.price / 100).toFixed(2);
+              }
+            }
+          } else {
+            delete pf.holdings[bono][field];
+          }
+          const h = pf.holdings[bono];
+          if (!h.vn && !h.monto_invertido && h.precio_manual_usd==null && h.precio_manual_ars==null) delete pf.holdings[bono];
+          Storage.save(); updateCarteraTotal(); switchToPortfolioAndRender();
+        });
+        inp.addEventListener('blur', () => { renderPortfolioInputs(); render(); });
+      });
+
+      // Toggle de moneda
+      container.querySelectorAll('[data-currency-btn]').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const bono = btn.dataset.bono;
+          const newCurr = btn.dataset.currencyBtn;
+          const pf = currentPF();
+          pf.holdings[bono] = normalizeHolding(pf.holdings[bono]);
+          pf.holdings[bono].currency = newCurr;
+          Storage.save(); renderPortfolioInputs(); switchToPortfolioAndRender();
+        });
+      });
+
+      // Abrir modal al click en card
+      container.querySelectorAll('[data-open-modal]').forEach(card => {
+        card.addEventListener('click', e => {
+          if (e.target.closest('[data-nomodal]') || e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+          openBondModal(card.dataset.bono);
+        });
+      });
+    }
+
+    function updateCarteraTotal() {
+      const s = AppState.getState();
+      const pf = currentPF();
+      if (!pf) return;
+      let vnUSD = 0, vnARS = 0, invUSD = 0, invARS = 0;
+      Object.keys(pf.holdings).forEach(b => {
+        const h = normalizeHolding(pf.holdings[b]);
+        const meta = s.BOND_META[b] || {};
+        const mn = meta.moneda_nativa || 'USD';
+        const vn = h.vn || 0;
+        if (mn === 'ARS') vnARS += vn; else vnUSD += vn;
+        if (!vn) return;
+        const currency = mn === 'ARS' ? 'ARS' : (h.currency || 'USD');
+        const precio = Finance.effectivePrice(b, currency, h, meta, s.PRICES);
+        if (!precio) return;
+        const m = vn * precio.price / 100;
+        if (mn === 'ARS') invARS += m; else invUSD += m;
+      });
+      const vnParts = [];
+      if (vnUSD > 0) vnParts.push('USD ' + vnUSD.toLocaleString('es-AR', { maximumFractionDigits: 0 }));
+      if (vnARS > 0) vnParts.push('ARS ' + vnARS.toLocaleString('es-AR', { maximumFractionDigits: 0 }));
+      const el = document.getElementById('carteraTotal');
+      if (el) el.textContent = vnParts.length ? vnParts.join(' + ') : '0';
+      const invParts = [];
+      if (invUSD > 0) invParts.push('U$ ' + invUSD.toLocaleString('es-AR', { maximumFractionDigits: 0 }));
+      if (invARS > 0) invParts.push('$ ' + invARS.toLocaleString('es-AR', { maximumFractionDigits: 0 }));
+      const invEl = document.getElementById('carteraInv');
+      if (invEl) { invEl.textContent = invParts.length ? invParts.join(' + ') : '—'; invEl.title = 'Monto invertido aprox.'; }
+    }
+
+    // ── Tabs de cartera ──
+    function renderTabs() {
+      const s = AppState.getState();
+      const tabsEl = document.getElementById('pfTabs');
+      if (!tabsEl) return;
+      tabsEl.innerHTML = Object.keys(s.PORTFOLIOS).map(id => {
+        const pf = s.PORTFOLIOS[id];
+        const isActive = id === s.ACTIVE_PF;
+        const canDel = Object.keys(s.PORTFOLIOS).length > 1;
+        return `<button class="pf-tab ${isActive?'active':''}" data-pf-id="${id}">
+          <span>${escapeHtml(pf.name)}</span>
+          ${canDel ? `<span class="pf-tab-close" data-close-id="${id}" title="Eliminar">×</span>` : ''}
+        </button>`;
+      }).join('');
+      tabsEl.querySelectorAll('.pf-tab').forEach(btn => {
+        btn.addEventListener('click', e => {
+          if (e.target.classList.contains('pf-tab-close')) return;
+          const id = btn.dataset.pfId;
+          if (id !== s.ACTIVE_PF) { s.ACTIVE_PF = id; Storage.save(); renderTabs(); renderPortfolioInputs(); render(); }
+        });
+      });
+      tabsEl.querySelectorAll('.pf-tab-close').forEach(x => {
+        x.addEventListener('click', e => {
+          e.stopPropagation();
+          const id = x.dataset.closeId;
+          if (!confirm(`¿Eliminar la cartera "${s.PORTFOLIOS[id].name}"?`)) return;
+          delete s.PORTFOLIOS[id];
+          if (s.ACTIVE_PF === id) s.ACTIVE_PF = Object.keys(s.PORTFOLIOS)[0];
+          Storage.save(); renderTabs(); renderPortfolioInputs(); render();
+        });
+      });
+    }
+
+    function openBondModal(bono) {
+      // Delegamos a la función existente en el HTML (modal completo)
+      // En una migración a React, esto sería un componente <BondModal bono={bono} />
+      if (typeof window._openBondModal === 'function') window._openBondModal(bono);
+    }
+
+    return { render, renderPortfolioInputs, renderTabs, switchToPortfolioAndRender, updateCarteraTotal, createCharts, getFiltered, scaleRow };
+  })();
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 10. INIT — bootstrap
+  // ─────────────────────────────────────────────────────────────────────────────
+  async function init() {
+    const loadingEl = document.getElementById('appLoading');
+    const loadingMsg = document.getElementById('loadingMsg');
+    const loadingErr = document.getElementById('loadingError');
+
+    function setMsg(m) { if (loadingMsg) loadingMsg.textContent = m; }
+    function showError(msg) {
+      if (loadingErr) {
+        loadingErr.innerHTML = `<div class="loading-error">${msg}<br><button onclick="window.location.reload()">Reintentar</button></div>`;
+        loadingErr.style.display = 'block';
+        if (loadingMsg) loadingMsg.style.display = 'none';
+      }
+    }
+
+    try {
+      setMsg('Cargando datos de flujos…');
+      const data = await DataLayer.load(status => {
+        if (status === 'cache') setMsg('Cargando desde caché…');
+        else if (status === 'fetching') setMsg('Descargando data.json…');
+      });
+
+      const s = AppState.getState();
+      s.DATA = data;
+      // BOND_META viene inyectado desde index.html (window.BOND_META_INIT)
+      s.BOND_META = window.BOND_META_INIT || {};
+
+      setMsg('Inicializando…');
+
+      // Storage
+      const loaded = Storage.load();
+      if (!Object.keys(s.PORTFOLIOS).length) {
+        const id = 'pf_' + Date.now();
+        s.PORTFOLIOS[id] = { name: 'Cartera Principal', holdings: {} };
+        s.ACTIVE_PF = id;
+      }
+      if (!s.ACTIVE_PF || !s.PORTFOLIOS[s.ACTIVE_PF]) s.ACTIVE_PF = Object.keys(s.PORTFOLIOS)[0];
+
+      // Cartura compartida vía hash
+      ExportImport.tryLoadFromHash();
+
+      // Custom instruments guardados
+      loadCustomInstruments();
+
+      // Escenarios
+      Scenarios.init();
+
+      // Inicializar filtros multiselect
+      initMultiselects();
+
+      // Tabs + inputs + charts
+      UI.renderTabs();
+      UI.renderPortfolioInputs();
+      UI.createCharts();
+
+      // Mostrar estado de precios previos
+      if (Object.values(s.PRICES).some(p => p.source === 'live')) {
+        document.getElementById('statusDot')?.classList.add('live');
+        document.getElementById('statusText').textContent = `Precios cargados (${Object.values(s.PRICES).filter(p => p.source==='live').length})`;
+      }
+
+      // Wire eventos
+      wireEvents();
+
+      // Render inicial
+      UI.render();
+
+      // Ocultar loading
+      if (loadingEl) {
+        loadingEl.classList.add('done');
+        setTimeout(() => loadingEl.remove(), 500);
+      }
+
+      // Precios en vivo (auto-fetch + refresh cada 5min)
+      PricesAPI.fetch5min().catch(() => {});
+
+    } catch (err) {
+      console.error('Init error:', err);
+      showError(`Error al inicializar la aplicación:<br><em>${err.message}</em><br>Verificá que <code>data.json</code> esté en el mismo directorio que <code>index.html</code>.`);
+    }
+  }
+
+  function wireEvents() {
+    const s = AppState.getState();
+    const on = (id, ev, fn) => document.getElementById(id)?.addEventListener(ev, fn);
+
+    // View toggle
+    document.querySelectorAll('.toggle-btn[data-mode]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.toggle-btn[data-mode]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        s.VIEW_MODE = btn.dataset.mode;
+        if (s.VIEW_MODE === 'portfolio') document.getElementById('portfolioPanel')?.setAttribute('open', '');
+        UI.render();
+      });
+    });
+
+    // Timeline currency toggle
+    document.querySelectorAll('#timelineCurrencyToggle .toggle-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#timelineCurrencyToggle .toggle-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        s.TIMELINE_CURRENCY = btn.dataset.tcurr;
+        UI.render();
+      });
+    });
+
+    // Filtros
+    on('fEstado', 'change', () => UI.render());
+    on('fTipo',   'change', () => UI.render());
+    on('btnReset', 'click', () => {
+      ['anio','mes','dia','bono'].forEach(k => { s.FILTERS[k].clear(); buildMultiselectDropdown(k); updateMultiselectUI(k); });
+      document.getElementById('fEstado').value = 'Pendiente';
+      document.getElementById('fTipo').value = 'todos';
+      UI.render();
+    });
+
+    // Portfolio actions
+    on('btnClearCartera', 'click', () => {
+      const pf = currentPF();
+      if (!confirm(`¿Vaciar "${pf.name}"?`)) return;
+      pf.holdings = {}; Storage.save(); UI.renderPortfolioInputs(); UI.switchToPortfolioAndRender();
+    });
+    on('btnExampleCartera', 'click', () => {
+      currentPF().holdings = {
+        'AL30 / GD30': { vn: 10000, currency: 'USD' },
+        'AL35 / GD35': { vn: 5000,  currency: 'USD' },
+        'AN29':        { vn: 8000,  currency: 'ARS' },
+        'AO27':        { vn: 5000,  currency: 'USD' },
+        'BPD7 (BOPREAL S.1-D)': { vn: 3000, currency: 'USD' },
+      };
+      Storage.save(); UI.renderPortfolioInputs(); UI.switchToPortfolioAndRender();
+    });
+    on('btnDeletePf', 'click', () => {
+      if (Object.keys(s.PORTFOLIOS).length <= 1) return alert('No podés eliminar la última cartera.');
+      const pf = currentPF();
+      if (!confirm(`¿Eliminar "${pf.name}"?`)) return;
+      delete s.PORTFOLIOS[s.ACTIVE_PF];
+      s.ACTIVE_PF = Object.keys(s.PORTFOLIOS)[0];
+      Storage.save(); UI.renderTabs(); UI.renderPortfolioInputs(); UI.render();
+    });
+    on('pfNameInput', 'change', e => {
+      const pf = currentPF();
+      pf.name = (e.target.value || 'Sin nombre').trim().slice(0, 40);
+      Storage.save(); UI.renderTabs();
+      document.getElementById('pfTitle').textContent = pf.name;
+    });
+
+    // Nueva cartera
+    const modalNewPf = document.getElementById('modalNewPf');
+    const newPfInput = document.getElementById('newPfNameInput');
+    on('btnNewPf', 'click', () => {
+      if (newPfInput) newPfInput.value = `Cartera ${Object.keys(s.PORTFOLIOS).length + 1}`;
+      modalNewPf?.classList.add('open');
+      setTimeout(() => newPfInput?.focus(), 50);
+    });
+    on('modalNewCancel', 'click', () => modalNewPf?.classList.remove('open'));
+    on('modalNewConfirm', 'click', () => {
+      const name = newPfInput?.value.trim();
+      if (!name) return;
+      const id = 'pf_' + Date.now();
+      s.PORTFOLIOS[id] = { name, holdings: {} };
+      s.ACTIVE_PF = id;
+      Storage.save(); UI.renderTabs(); UI.renderPortfolioInputs();
+      document.getElementById('portfolioPanel')?.setAttribute('open', '');
+      modalNewPf?.classList.remove('open');
+      UI.render();
+    });
+    newPfInput?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') on('modalNewConfirm', 'click', ()=>{});
+      if (e.key === 'Escape') modalNewPf?.classList.remove('open');
+    });
+    modalNewPf?.addEventListener('click', e => { if (e.target === modalNewPf) modalNewPf.classList.remove('open'); });
+
+    // Precios
+    on('btnFetchPrices', 'click', () => PricesAPI.fetchAll());
+
+    // Costos
+    ['costComision','costDerechos','costIva','costInflacion'].forEach(id => {
+      const map = { costComision:'comision', costDerechos:'derechos', costIva:'iva', costInflacion:'inflacion' };
+      document.getElementById(id)?.addEventListener('input', e => {
+        const v = parseFloat(e.target.value);
+        s.COSTS[map[id]] = Number.isFinite(v) ? v : 0;
+        Storage.save();
+        document.getElementById('costsSubtitle').textContent =
+          `Broker ${s.COSTS.comision}% + Derechos ${s.COSTS.derechos}% + IVA ${s.COSTS.iva}% · Inflación ${s.COSTS.inflacion}% (CER)`;
+        if (id === 'costInflacion') UI.render();
+      });
+    });
+
+    // Exports
+    on('btnExport', 'click', () => {
+      const rows = UI.getFiltered();
+      const pf = currentPF();
+      const csv = ExportImport.toCSV(rows, pf.name, s.COSTS, s.BOND_META, s.PRICES);
+      const fecha = new Date().toISOString().slice(0,10);
+      ExportImport.downloadCSV(csv, `cartera_${(pf.name||'').replace(/\s+/g,'_')}_${fecha}.csv`);
+    });
+    on('btnExportExcel', 'click', () => ExportImport.toExcel(UI.getFiltered(), currentPF()?.name).catch(e => alert('Error al generar Excel: ' + e.message)));
+    on('btnExportJSON', 'click', () => ExportImport.exportJSON());
+    on('btnImportJSON', 'click', () => document.getElementById('fileImportJSON')?.click());
+    document.getElementById('fileImportJSON')?.addEventListener('change', e => {
+      if (e.target.files[0]) ExportImport.importJSON(e.target.files[0]);
+    });
+    on('btnShareLink', 'click', () => ExportImport.shareLink());
+
+    // Versionado
+    on('btnSaveVersion', 'click', () => {
+      const label = prompt('Nombre para esta versión (opcional):');
+      Storage.saveVersion(label || undefined);
+      renderVersionsList();
+      alert('Versión guardada.');
+    });
+
+    // Cerrar modales con ESC
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      document.querySelectorAll('.modal-backdrop.open').forEach(m => m.classList.remove('open'));
+    });
+
+    // Modal bond: cerrar al click en backdrop
+    document.getElementById('modalBond')?.addEventListener('click', e => {
+      if (e.target.id === 'modalBond') e.currentTarget.classList.remove('open');
+    });
+
+    // Add instrument modal
+    on('btnAddInstrument', 'click', () => {
+      ['instTicker','instEmision','instVencimiento','instTem','instCupon','instAmortCuotas']
+        .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      document.getElementById('instTipo').value = 'LECAP';
+      const prev = document.getElementById('instPreview');
+      if (prev) { prev.textContent = 'Completá los campos para ver el preview.'; prev.style.color = 'var(--text-faint)'; }
+      actualizarCamposInst();
+      document.getElementById('modalAddInst')?.classList.add('open');
+    });
+    on('modalAddInstCancel', 'click', () => document.getElementById('modalAddInst')?.classList.remove('open'));
+    on('modalAddInstConfirm', 'click', () => { if (addCustomInstrumentGlobal()) document.getElementById('modalAddInst')?.classList.remove('open'); });
+    ['instTicker','instEmision','instVencimiento','instTem','instCupon','instAmortCuotas']
+      .forEach(id => document.getElementById(id)?.addEventListener('input', actualizarPreviewInst));
+    document.getElementById('instTipo')?.addEventListener('change', actualizarCamposInst);
+  }
+
+  // ── Multiselect filters ──
+  const FILTER_OPTIONS = {};
+  function buildFilterOptions() {
+    const s = AppState.getState();
+    const anios = [...new Set(s.DATA.map(r => r.Anio))].sort();
+    const bonos = Object.keys(s.BOND_META);
+    const diasSet = [...new Set(s.DATA.map(r => new Date(r.Fecha_Pago+'T00:00:00').getDate()))].sort((a,b)=>a-b);
+    FILTER_OPTIONS.anio = anios.map(a => ({ value: String(a), label: String(a) }));
+    FILTER_OPTIONS.mes  = MESES.map((m, i) => ({ value: String(i+1), label: m }));
+    FILTER_OPTIONS.dia  = diasSet.map(d => ({ value: String(d), label: String(d) }));
+    FILTER_OPTIONS.bono = bonos.map(b => ({ value: b, label: b }));
+  }
+
+  function initMultiselects() {
+    buildFilterOptions();
+    ['anio','mes','dia','bono'].forEach(key => {
+      buildMultiselectDropdown(key);
+      updateMultiselectUI(key);
+      const el = document.querySelector(`.multiselect[data-filter="${key}"]`);
+      if (!el) return;
+      el.addEventListener('click', e => {
+        if (e.target.classList.contains('x')) return;
+        const dropdown = el.querySelector('.multiselect-dropdown');
+        const alreadyOpen = dropdown.classList.contains('open');
+        document.querySelectorAll('.multiselect-dropdown.open').forEach(d => d.classList.remove('open'));
+        document.querySelectorAll('.multiselect.open').forEach(m => m.classList.remove('open'));
+        if (!alreadyOpen) { dropdown.classList.add('open'); el.classList.add('open'); }
+      });
+    });
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.multiselect')) {
+        document.querySelectorAll('.multiselect-dropdown.open').forEach(d => d.classList.remove('open'));
+        document.querySelectorAll('.multiselect.open').forEach(m => m.classList.remove('open'));
+      }
+    });
+  }
+
+  function buildMultiselectDropdown(key) {
+    const s = AppState.getState();
+    const el = document.querySelector(`.multiselect[data-filter="${key}"]`);
+    if (!el) return;
+    const dropdown = el.querySelector('.multiselect-dropdown');
+    const opts = FILTER_OPTIONS[key] || [];
+    const selected = s.FILTERS[key];
+    dropdown.innerHTML = `
+      <div class="ms-option all" data-ms-all><input type="checkbox" ${selected.size===0?'checked':''}><span>(Todos)</span></div>
+      ${opts.map(o => `<div class="ms-option" data-ms-value="${escapeHtml(o.value)}"><input type="checkbox" ${selected.has(o.value)?'checked':''}><span>${escapeHtml(o.label)}</span></div>`).join('')}`;
+    dropdown.querySelectorAll('.ms-option').forEach(opt => {
+      opt.addEventListener('click', e => {
+        e.stopPropagation();
+        if (opt.dataset.msAll !== undefined) { selected.clear(); }
+        else { const v = opt.dataset.msValue; selected.has(v) ? selected.delete(v) : selected.add(v); }
+        buildMultiselectDropdown(key); updateMultiselectUI(key); UI.render();
+      });
+    });
+  }
+
+  function updateMultiselectUI(key) {
+    const s = AppState.getState();
+    const el = document.querySelector(`.multiselect[data-filter="${key}"]`);
+    if (!el) return;
+    el.querySelectorAll('.multiselect-chip').forEach(c => c.remove());
+    const placeholder = el.querySelector('.multiselect-placeholder');
+    const selected = s.FILTERS[key];
+    if (selected.size === 0) { if (placeholder) { placeholder.style.display=''; placeholder.textContent='Todos'; } }
+    else {
+      if (placeholder) placeholder.style.display = 'none';
+      const dropdown = el.querySelector('.multiselect-dropdown');
+      const chips = [...selected].map(v => {
+        const opt = (FILTER_OPTIONS[key]||[]).find(o => o.value === v);
+        return `<span class="multiselect-chip">${escapeHtml(opt?.label||v)}<span class="x" data-ms-remove="${escapeHtml(v)}">×</span></span>`;
+      }).join('');
+      dropdown.insertAdjacentHTML('beforebegin', chips);
+    }
+    const badge = document.getElementById('badge' + key.charAt(0).toUpperCase() + key.slice(1));
+    if (badge) badge.innerHTML = selected.size > 0 ? `<span class="filter-label-badge">${selected.size}</span>` : '';
+    el.querySelectorAll('[data-ms-remove]').forEach(x => {
+      x.addEventListener('click', e => {
+        e.stopPropagation(); s.FILTERS[key].delete(x.dataset.msRemove);
+        updateMultiselectUI(key); UI.render();
+      });
+    });
+  }
+
+  // ── Versiones ──
+  function renderVersionsList() {
+    const s = AppState.getState();
+    const el = document.getElementById('versionsList');
+    if (!el) return;
+    if (!s.PF_VERSIONS.length) { el.innerHTML = '<div style="color:var(--text-faint);font-size:12px;padding:8px 0">Sin versiones guardadas.</div>'; return; }
+    el.innerHTML = s.PF_VERSIONS.map(v => `
+      <div class="version-item">
+        <div>
+          <div style="font-size:12px;font-weight:600">${escapeHtml(v.label)}</div>
+          <div class="version-meta">${v.pfName} · ${Object.keys(v.holdings).length} bonos</div>
+        </div>
+        <div class="version-actions">
+          <button class="btn small" onclick="restoreVersionGlobal(${v.id})">Restaurar</button>
+        </div>
+      </div>`).join('');
+  }
+
+  // Exponer para uso inline en HTML
+  window.restoreVersionGlobal = id => {
+    if (!confirm('¿Restaurar esta versión? La cartera actual se reemplazará.')) return;
+    if (Storage.restoreVersion(id)) { UI.renderPortfolioInputs(); UI.render(); renderVersionsList(); }
+  };
+
+  // ── Custom instruments ──
+  function actualizarCamposInst() {
+    const tipo = document.getElementById('instTipo')?.value;
+    const esBullet = tipo === 'LECAP' || tipo === 'BONCAP' || tipo === 'BONCER cero';
+    document.getElementById('instTemRow')?.style && (document.getElementById('instTemRow').style.display = esBullet && tipo !== 'BONCER cero' ? '' : 'none');
+    document.getElementById('instCuponRow')?.style && (document.getElementById('instCuponRow').style.display = tipo === 'BONCER' || tipo === 'Bonar' ? '' : 'none');
+    document.getElementById('instAmortRow')?.style && (document.getElementById('instAmortRow').style.display = tipo === 'BONCER' || tipo === 'Bonar' ? '' : 'none');
+    actualizarPreviewInst();
+  }
+
+  function actualizarPreviewInst() {
+    const preview = document.getElementById('instPreview');
+    if (!preview) return;
+    const ticker = document.getElementById('instTicker')?.value.trim().toUpperCase();
+    const tipo   = document.getElementById('instTipo')?.value;
+    const emision= document.getElementById('instEmision')?.value;
+    const venc   = document.getElementById('instVencimiento')?.value;
+    const tem    = parseFloat(document.getElementById('instTem')?.value);
+    const cupon  = parseFloat(document.getElementById('instCupon')?.value);
+    const nCuotas= parseInt(document.getElementById('instAmortCuotas')?.value);
+    if (!ticker || !venc) { preview.style.color='var(--text-faint)'; preview.textContent='Completá ticker y vencimiento para ver el preview.'; return; }
+    try {
+      const cfg = { ticker, tipo, emision: emision||venc, vencimiento: venc, tem, cupon, amortCuotas: nCuotas };
+      const flujos = generarFlujosCustom(cfg).filter(f => f.Estado === 'Pendiente');
+      if (!flujos.length) { preview.style.color='var(--red)'; preview.textContent='⚠ Sin flujos futuros (vencimiento pasado?).'; return; }
+      const tInt = flujos.reduce((a,f) => a+f.Interes_USD, 0);
+      const tAm  = flujos.reduce((a,f) => a+f.Amortizacion_USD, 0);
+      const mn = flujos[0].Moneda_Nativa; const sym = mn==='ARS'?'$':'U$';
+      preview.style.color='var(--green)';
+      preview.textContent = `✓ ${ticker} (${tipo}) · ${flujos.length} pago(s) · ${mn}\n  Int: ${sym}${tInt.toFixed(2)} · Amort: ${sym}${tAm.toFixed(2)} por c/100 VN\n  ${flujos[0].Fecha_Pago} → ${flujos[flujos.length-1].Fecha_Pago}`;
+    } catch(e) { preview.style.color='var(--red)'; preview.textContent='⚠ Error: ' + e.message; }
+  }
+
+  function generarFlujosCustom(cfg) {
+    const hoy = new Date(); hoy.setHours(0,0,0,0);
+    const flujos = [];
+    const vto = new Date(cfg.vencimiento + 'T00:00:00');
+    const emi = new Date((cfg.emision||cfg.vencimiento) + 'T00:00:00');
+
+    if (cfg.tipo === 'LECAP' || cfg.tipo === 'BONCAP') {
+      const meses = Math.max(1, (vto.getFullYear()-emi.getFullYear())*12 + (vto.getMonth()-emi.getMonth()));
+      const tem = (cfg.tem||0)/100;
+      const vf = 100 * Math.pow(1+tem, meses);
+      flujos.push({ Fecha_Pago: cfg.vencimiento, Anio: vto.getFullYear(), Mes: vto.getMonth()+1,
+        Bono: cfg.ticker, Tipo_Instrumento: cfg.tipo, Ley: 'Local', Moneda: 'ARS', Moneda_Nativa: 'ARS',
+        Estado: vto < hoy ? 'Pagado':'Pendiente', Residual_Inicio_Pct: 1, Tasa_Anual_Pct: Math.pow(1+tem,12)-1,
+        Interes_USD: vf-100, Amortizacion_USD: 100, Flujo_Total_USD: vf });
+    } else if (cfg.tipo === 'BONCER cero') {
+      flujos.push({ Fecha_Pago: cfg.vencimiento, Anio: vto.getFullYear(), Mes: vto.getMonth()+1,
+        Bono: cfg.ticker, Tipo_Instrumento: 'BONCER cero', Ley: 'Local', Moneda: 'ARS', Moneda_Nativa: 'ARS',
+        Estado: vto < hoy ? 'Pagado':'Pendiente', Residual_Inicio_Pct: 1, Tasa_Anual_Pct: 0,
+        Interes_USD: 0, Amortizacion_USD: 100, Flujo_Total_USD: 100 });
+    } else {
+      // BONCER con cupones o Bonar
+      const mn = cfg.tipo === 'Bonar' ? 'USD' : 'ARS';
+      const cuponAnual = (cfg.cupon||0)/100;
+      const nCuotas = Math.max(1, parseInt(cfg.amortCuotas)||1);
+      const fechas = [];
+      let cur = new Date(vto);
+      while (cur >= emi) { fechas.unshift(new Date(cur)); cur = new Date(cur); cur.setMonth(cur.getMonth()-6); }
+      if (!fechas.length) fechas.push(vto);
+      const amortFechas = new Set(fechas.slice(-nCuotas).map(f => f.toISOString().slice(0,10)));
+      const amortPct = 100/nCuotas;
+      let residual = 100;
+      fechas.forEach(fecha => {
+        const iso = fecha.toISOString().slice(0,10);
+        const int = residual * cuponAnual / 2;
+        const amort = amortFechas.has(iso) ? amortPct : 0;
+        flujos.push({ Fecha_Pago: iso, Anio: fecha.getFullYear(), Mes: fecha.getMonth()+1,
+          Bono: cfg.ticker, Tipo_Instrumento: cfg.tipo, Ley: 'Local', Moneda: mn, Moneda_Nativa: mn,
+          Estado: fecha < hoy ? 'Pagado':'Pendiente', Residual_Inicio_Pct: residual/100, Tasa_Anual_Pct: cuponAnual,
+          Interes_USD: int, Amortizacion_USD: amort, Flujo_Total_USD: int+amort });
+        residual -= amort;
+      });
+    }
+    return flujos;
+  }
+
+  function addCustomInstrumentGlobal() {
+    const s = AppState.getState();
+    const ticker = document.getElementById('instTicker')?.value.trim().toUpperCase();
+    const tipo   = document.getElementById('instTipo')?.value;
+    const emision= document.getElementById('instEmision')?.value;
+    const venc   = document.getElementById('instVencimiento')?.value;
+    const tem    = parseFloat(document.getElementById('instTem')?.value)||0;
+    const cupon  = parseFloat(document.getElementById('instCupon')?.value)||0;
+    const nCuotas= parseInt(document.getElementById('instAmortCuotas')?.value)||1;
+    if (!ticker) { alert('Ingresá el ticker.'); return false; }
+    if (!venc) { alert('Ingresá la fecha de vencimiento.'); return false; }
+    if (s.BOND_META[ticker]) { alert(`"${ticker}" ya existe.`); return false; }
+    const cfg = { ticker, tipo, emision: emision||venc, vencimiento: venc, tem, cupon, amortCuotas: nCuotas };
+    const flujos = generarFlujosCustom(cfg);
+    if (!flujos.length) { alert('Sin flujos generados.'); return false; }
+    flujos.forEach(f => s.DATA.push(f));
+    const mn = (tipo==='BONCER'||tipo==='BONCER cero'||tipo==='LECAP'||tipo==='BONCAP') ? 'ARS' : 'USD';
+    const [dy, dm, dd] = [venc.slice(8,10), venc.slice(5,7), venc.slice(0,4)];
+    s.BOND_META[ticker] = { venc: `${dy}/${dm}/${dd}`, emisor:'Custom', moneda_nativa: mn, tipo, tickers_usd: mn==='USD'?[ticker+'D',ticker]:[], tickers_ars:[ticker], es_custom:true };
+    Storage.save();
+    const customs = JSON.parse(localStorage.getItem('bonos_custom')||'[]');
+    customs.push({ cfg, flujos, meta: s.BOND_META[ticker] });
+    localStorage.setItem('bonos_custom', JSON.stringify(customs));
+    if (FILTER_OPTIONS.bono && !FILTER_OPTIONS.bono.find(o => o.value===ticker)) {
+      FILTER_OPTIONS.bono.push({ value: ticker, label: ticker+' ★' });
+      buildMultiselectDropdown('bono');
+    }
+    UI.renderPortfolioInputs(); UI.render();
+    return true;
+  }
+
+  function loadCustomInstruments() {
+    const s = AppState.getState();
+    try {
+      const customs = JSON.parse(localStorage.getItem('bonos_custom')||'[]');
+      customs.forEach(({ cfg, flujos, meta }) => {
+        if (s.BOND_META[cfg.ticker]) return;
+        s.BOND_META[cfg.ticker] = meta;
+        flujos.forEach(f => s.DATA.push(f));
+      });
+    } catch(e) { console.warn('loadCustomInstruments', e); }
+  }
+
+  // Exponer openBondModal al HTML (el modal completo vive en index.html por ahora)
+  window._openBondModal = function(bono) {
+    // El modal usa datos de AppState
+    const s = AppState.getState();
+    const meta = s.BOND_META[bono] || {};
+    const mn = meta.moneda_nativa || 'USD';
+    const esCER = meta.tipo === 'BONCER' || meta.tipo === 'BONCER cero';
+    const esLecap = meta.tipo === 'LECAP' || meta.tipo === 'BONCAP';
+    const h = normalizeHolding(currentPF()?.holdings[bono]);
+    const currency = mn === 'ARS' ? 'ARS' : (h.currency || 'USD');
+    const vn = h.vn || 0;
+    const precio = Finance.effectivePrice(bono, currency, h, meta, s.PRICES);
+    let priceAdj = precio;
+    if (precio && s.SCENARIO.active) priceAdj = Scenarios.adjustedPrice(precio);
+    const precioValue = priceAdj ? priceAdj.price : 0;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const flujosBono = s.DATA.filter(r => r.Bono === bono && r.Estado === 'Pendiente');
+    const factor = vn > 0 ? vn / 100 : 0;
+    const flujosEscalados = flujosBono.map(r => {
+      const fInfla = esCER ? factorInflacion(r.Fecha_Pago) : 1;
+      return { ...r, f_inflacion: fInfla, interes_esc: r.Interes_USD * factor * fInfla, amort_esc: r.Amortizacion_USD * factor * fInfla, flujo_esc: r.Flujo_Total_USD * factor * fInfla };
+    });
+    const totalInt = flujosEscalados.reduce((a,r) => a+r.interes_esc, 0);
+    const totalAmort = flujosEscalados.reduce((a,r) => a+r.amort_esc, 0);
+    const totalCobrar = totalInt + totalAmort;
+    const montoCompraBruto = vn * precioValue / 100;
+    const costos = calcCosts(montoCompraBruto);
+    const montoTotalPagado = montoCompraBruto + costos.total;
+    const precioUsd = mn === 'USD' ? Finance.effectivePrice(bono,'USD',h,meta,s.PRICES) : null;
+    const precioArs = mn === 'USD' ? Finance.effectivePrice(bono,'ARS',h,meta,s.PRICES) : null;
+    const implicitFX = precioUsd && precioArs ? precioArs.price / precioUsd.price : null;
+    let montoPagadoEn = null;
+    if (mn === 'USD') montoPagadoEn = currency === 'USD' ? montoTotalPagado : (implicitFX ? montoTotalPagado/implicitFX : null);
+    else montoPagadoEn = montoTotalPagado;
+    const gananciaBruta = montoPagadoEn != null ? totalCobrar - montoPagadoEn : null;
+    const gananciaPct = gananciaBruta != null && montoPagadoEn > 0 ? gananciaBruta / montoPagadoEn : null;
+    let tirAnual = null;
+    if (montoPagadoEn != null && montoPagadoEn > 0 && flujosEscalados.length) {
+      tirAnual = Finance.calcIRR(-montoPagadoEn, flujosEscalados.map(r => ({Fecha_Pago: r.Fecha_Pago, flujo_esc: r.flujo_esc})), today);
+    }
+    const sym = currency === 'ARS' ? '$' : 'U$';
+    const flujoSym = mn === 'ARS' ? '$' : 'U$';
+    const scenNote = s.SCENARIO.active ? `<span style="color:var(--red);font-size:10px;margin-left:8px">⚠ ESCENARIO ACTIVO${s.SCENARIO.precioDelta!==0?` precio ${s.SCENARIO.precioDelta>0?'+':''}${s.SCENARIO.precioDelta}%`:''}</span>` : '';
+
+    const html = `
+      <div class="bond-modal-header">
+        <div>
+          <div class="bond-modal-title">${escapeHtml(bono)}</div>
+          <div class="bond-modal-subtitle">
+            ${meta.tipo||''} · Vto ${meta.venc||'—'} <span class="badge ${currency==='ARS'?'ars':'usd'}" style="margin-left:8px">${currency}</span>
+            ${priceAdj ? `<span style="color:var(--text-dim);margin-left:8px">${sym}${priceAdj.price.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})} (${priceAdj.source})</span>` : ''}
+            ${esCER && s.COSTS.inflacion > 0 ? `<span style="color:var(--purple);margin-left:8px">Inflación proy.: ${s.COSTS.inflacion + (s.SCENARIO.active?s.SCENARIO.inflacionDelta:0)}%/año</span>` : ''}
+            ${scenNote}
+          </div>
+        </div>
+        <button class="bond-modal-close" id="closeBondModal">×</button>
+      </div>
+      ${vn === 0 ? '<div class="empty-state" style="padding:30px"><h3>Cargá un VN o monto para ver la calculadora</h3></div>' : !priceAdj ? '<div class="empty-state" style="padding:30px"><h3>Sin precio cargado</h3><div>Ingresá un precio manual o actualizá los precios de mercado.</div></div>' : `
+        <div class="bond-modal-kpis">
+          <div class="bond-modal-kpi"><div class="bond-modal-kpi-label">Invertido (${currency})</div><div class="bond-modal-kpi-value">${sym} ${fmt(montoTotalPagado,2)}</div><div class="bond-modal-kpi-sub">VN ${vn.toLocaleString('es-AR')} × ${precioValue.toFixed(2)}/100 + costos</div></div>
+          <div class="bond-modal-kpi accent"><div class="bond-modal-kpi-label">Total a Cobrar</div><div class="bond-modal-kpi-value">${flujoSym} ${fmt(totalCobrar,2)}</div><div class="bond-modal-kpi-sub">${flujosEscalados.length} pagos${esCER?' (proyectados)':''}</div></div>
+          <div class="bond-modal-kpi ${gananciaBruta!=null&&gananciaBruta>=0?'positive':'negative'}"><div class="bond-modal-kpi-label">Ganancia Bruta</div><div class="bond-modal-kpi-value">${montoPagadoEn!=null?flujoSym+' '+fmt(gananciaBruta,2):'—'}</div><div class="bond-modal-kpi-sub">${gananciaPct!=null?(gananciaPct>=0?'+':''+(gananciaPct*100).toFixed(1)+'% sobre inversión'):'—'}</div></div>
+          <div class="bond-modal-kpi ${tirAnual!=null&&tirAnual>=0?'positive':tirAnual!=null?'negative':''}"><div class="bond-modal-kpi-label">TIR Neta ${mn}</div><div class="bond-modal-kpi-value">${tirAnual!=null?(tirAnual*100).toFixed(2)+'%':'—'}</div><div class="bond-modal-kpi-sub">${tirAnual!=null?(esLecap?'según precio actual':'después de costos'):'No calculable'}</div></div>
+        </div>
+        <div class="breakdown-section">
+          <h4>Desglose de compra <span class="sub">VN ${vn.toLocaleString('es-AR')} @ ${precioValue.toFixed(2)}/100</span></h4>
+          <div class="breakdown-row"><span class="label-dim">Monto bruto</span><span class="val">${sym} ${fmt(montoCompraBruto,2)}</span></div>
+          <div class="breakdown-row"><span class="label-dim">Comisión (${s.COSTS.comision}%)</span><span class="val">${sym} ${fmt(costos.comision,2)}</span></div>
+          <div class="breakdown-row"><span class="label-dim">Derechos (${s.COSTS.derechos}%)</span><span class="val">${sym} ${fmt(costos.derechos,2)}</span></div>
+          <div class="breakdown-row"><span class="label-dim">IVA (${s.COSTS.iva}%)</span><span class="val">${sym} ${fmt(costos.iva,2)}</span></div>
+          <div class="breakdown-row total"><span>TOTAL A PAGAR</span><span class="val">${sym} ${fmt(montoTotalPagado,2)}</span></div>
+        </div>
+        ${mn==='USD'&&currency==='ARS'&&implicitFX?`<div class="breakdown-section" style="border-color:rgba(184,142,232,0.3)"><h4 style="color:var(--purple)">Conversión a USD</h4><div class="breakdown-row"><span class="label-dim">FX implícito</span><span class="val">$ ${implicitFX.toFixed(2)}</span></div><div class="breakdown-row"><span class="label-dim">Invertido en USD</span><span class="val">U$ ${fmt(montoPagadoEn,2)}</span></div></div>`:''}
+        <div class="breakdown-section">
+          <h4>Calendario de pagos <span class="sub">VN ${vn.toLocaleString('es-AR')}${esCER?' · con inflación':''}</span></h4>
+          <div class="modal-table-wrap"><table>
+            <thead><tr><th>Fecha</th><th style="text-align:right">Interés ${mn}</th><th style="text-align:right">Amort ${mn}</th><th style="text-align:right">Flujo ${mn}</th><th style="text-align:right">Acumulado</th></tr></thead>
+            <tbody>${(() => { let ac=0; return flujosEscalados.sort((a,b)=>a.Fecha_Pago.localeCompare(b.Fecha_Pago)).map(r=>{ ac+=r.flujo_esc; return `<tr><td class="mono">${fmtFecha(r.Fecha_Pago)}</td><td class="num">${fmtMoney(r.interes_esc,mn,2)}</td><td class="num">${fmtMoney(r.amort_esc,mn,2)}</td><td class="num highlight">${fmtMoney(r.flujo_esc,mn,2)}</td><td class="num" style="color:var(--green)">${fmtMoney(ac,mn,2)}</td></tr>`; }).join(''); })()}</tbody>
+          </table><div class="note">Flujos en <strong>${mn}</strong>.${esCER?` Proyectados con inflación ${s.COSTS.inflacion+(s.SCENARIO.active?s.SCENARIO.inflacionDelta:0)}%/año. Los pagos reales dependen del CER publicado por el BCRA.`:''}${tirAnual!=null?` TIR: ${(tirAnual*100).toFixed(2)}%.`:''}</div></div>
+        </div>`}`;
+
+    const content = document.getElementById('modalBondContent');
+    if (content) content.innerHTML = html;
+    document.getElementById('modalBond')?.classList.add('open');
+    document.getElementById('closeBondModal')?.addEventListener('click', () => {
+      document.getElementById('modalBond')?.classList.remove('open');
+    });
+  };
+
+  // ── Countdown de precios ──
+  setInterval(() => {
+    const s = AppState.getState();
+    if (!s.PRICES_FETCHED_AT) return;
+    const minHace = Math.floor((Date.now() - s.PRICES_FETCHED_AT) / 60000);
+    const info = document.getElementById('pricesInfo');
+    if (info && Object.values(s.PRICES).some(p => p.source==='live')) {
+      info.innerHTML = `<strong>Actualizado:</strong> hace ${minHace} min · Próx. actualización en ${5-minHace%5} min`;
+    }
+  }, 30000);
+
+  // ── Arrancar ──
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+})();
