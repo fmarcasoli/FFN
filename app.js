@@ -1528,10 +1528,39 @@
         return toISO(s.BOND_META[a].venc).localeCompare(toISO(s.BOND_META[b].venc));
       });
 
+      // Estado de colapso por grupo — persiste en sessionStorage
+      const COLLAPSE_KEY = 'pf_grupo_collapsed';
+      function getCollapsedGroups() {
+        try { return JSON.parse(sessionStorage.getItem(COLLAPSE_KEY) || '{}'); } catch { return {}; }
+      }
+      function setGroupCollapsed(nombre, collapsed) {
+        const state = getCollapsedGroups();
+        if (collapsed) state[nombre] = true; else delete state[nombre];
+        try { sessionStorage.setItem(COLLAPSE_KEY, JSON.stringify(state)); } catch {}
+      }
+
+      const collapsed = getCollapsedGroups();
+
       let html = '';
       Object.entries(grupos).forEach(([grupoNombre, bonos]) => {
         if (!bonos.length) return;
-        html += `<div class="portfolio-section"><div class="portfolio-section-title">${grupoNombre}</div><div class="portfolio-inputs">`;
+        const isOpen = !collapsed[grupoNombre];
+        const vnTotal = bonos.reduce((sum, b) => {
+          const h = normalizeHolding(pf.holdings[b]);
+          return sum + (h.vn || 0);
+        }, 0);
+        const activeCount = bonos.filter(b => (normalizeHolding(pf.holdings[b]).vn || 0) > 0).length;
+        const badge = activeCount > 0
+          ? `<span class="grupo-badge">${activeCount} posición${activeCount > 1 ? 'es' : ''} · U$ ${vnTotal.toLocaleString('es-AR')}</span>`
+          : `<span class="grupo-badge muted">${bonos.length} instrumento${bonos.length !== 1 ? 's' : ''}</span>`;
+
+        html += `<details class="portfolio-grupo" ${isOpen ? 'open' : ''} data-grupo="${grupoNombre.replace(/"/g,'&quot;')}">
+          <summary class="portfolio-grupo-summary">
+            <span class="grupo-chevron">▶</span>
+            <span class="grupo-nombre">${grupoNombre}</span>
+            ${badge}
+          </summary>
+          <div class="portfolio-inputs">`;
         bonos.forEach(b => {
           const meta = s.BOND_META[b];
           const h = normalizeHolding(pf.holdings[b]);
@@ -1585,9 +1614,17 @@
             <div class="bond-input-open-hint">→ ver calc</div>
           </div>`;
         });
-        html += '</div></div>';
+        html += '</div></details>';
       });
       container.innerHTML = html;
+
+      // Persistir estado open/closed al hacer toggle
+      container.querySelectorAll('details.portfolio-grupo').forEach(det => {
+        det.addEventListener('toggle', () => {
+          setGroupCollapsed(det.dataset.grupo, !det.open);
+        });
+      });
+
       wirePortfolioInputs(container);
       updateCarteraTotal();
     }
@@ -1760,6 +1797,44 @@
     const loadingEl = document.getElementById('appLoading');
     const loadingMsg = document.getElementById('loadingMsg');
     const loadingErr = document.getElementById('loadingError');
+
+    // Inyectar CSS para grupos desplegables de cartera
+    (function injectGrupoCSS() {
+      const el = document.createElement('style');
+      el.textContent = `
+        details.portfolio-grupo { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+        details.portfolio-grupo[open] > summary .grupo-chevron { transform: rotate(90deg); }
+        summary.portfolio-grupo-summary {
+          display: flex; align-items: center; gap: 10px;
+          padding: 10px 14px; cursor: pointer; user-select: none;
+          background: var(--bg-card); border-bottom: 1px solid transparent;
+          list-style: none; transition: background 0.15s;
+        }
+        summary.portfolio-grupo-summary::-webkit-details-marker { display: none; }
+        details.portfolio-grupo[open] > summary { border-bottom-color: var(--border); }
+        summary.portfolio-grupo-summary:hover { background: var(--bg-hover); }
+        .grupo-chevron {
+          font-size: 10px; color: var(--text-dim);
+          transition: transform 0.2s ease; display: inline-block; flex-shrink: 0;
+        }
+        .grupo-nombre {
+          font-size: 12px; font-weight: 600; letter-spacing: 0.06em;
+          text-transform: uppercase; color: var(--text); flex: 1;
+        }
+        .grupo-badge {
+          font-size: 10px; font-family: 'JetBrains Mono', monospace;
+          background: rgba(245,185,66,0.1); color: var(--accent);
+          border: 1px solid rgba(245,185,66,0.25);
+          padding: 2px 8px; border-radius: 4px; white-space: nowrap;
+        }
+        .grupo-badge.muted {
+          background: var(--bg-hover); color: var(--text-dim);
+          border-color: var(--border);
+        }
+        details.portfolio-grupo > .portfolio-inputs { padding: 12px 10px 4px; }
+      `;
+      document.head.appendChild(el);
+    })();
 
     function setMsg(m) { if (loadingMsg) loadingMsg.textContent = m; }
     function showError(msg) {
