@@ -2130,31 +2130,8 @@
   function actualizarPreviewInst() {
     const preview = document.getElementById('instPreview');
     if (!preview) return;
-    const chequePrec = parseFloat(document.getElementById('instChequePrec')?.value) || 0;
-    const chequeMon  = document.getElementById('instChequeMon')?.value || 'ARS';
-    const emisor     = document.getElementById('instEmisor')?.value.trim() || '';
 
-    // Preview especial para cheque: mostrar TIR implícita
-    if (tipo === 'Cheque' && venc && chequePrec > 0) {
-      const vtoD = new Date(venc + 'T00:00:00');
-      const hoyD = new Date(); hoyD.setHours(0,0,0,0);
-      const dias = Math.max(1, (vtoD - hoyD) / 86400000);
-      const tirDiaria = (100 / chequePrec) ** (1/dias) - 1;
-      const tirMensual = ((1 + tirDiaria) ** 30 - 1) * 100;
-      const tirAnual = ((1 + tirDiaria) ** 365 - 1) * 100;
-      const descuento = 100 - chequePrec;
-      const sym = chequeMon === 'USD' ? 'U$' : '$';
-      preview.style.color = 'var(--green)';
-      preview.textContent = [
-        `✓ Cheque${emisor ? ` — ${emisor}` : ''} · ${chequeMon} · ${Math.round(dias)} días`,
-        `  Precio compra: ${sym}${chequePrec.toFixed(2)} → cobras ${sym}100.00`,
-        `  Descuento: ${sym}${descuento.toFixed(2)} (${(descuento/chequePrec*100).toFixed(2)}% sobre inversión)`,
-        `  TIR: ${tirMensual.toFixed(2)}% TEM · ${tirAnual.toFixed(2)}% TEA`,
-      ].join('\n');
-      const tirEl = document.getElementById('instChequeTirPreview');
-      if (tirEl) tirEl.textContent = `TIR: ${tirMensual.toFixed(2)}% TEM · ${tirAnual.toFixed(2)}% TEA · ${Math.round(dias)} días`;
-      return;
-    }
+    // Leer todos los campos primero
     const tipo   = document.getElementById('instTipo')?.value;
     const emision= document.getElementById('instEmision')?.value;
     const venc   = document.getElementById('instVencimiento')?.value;
@@ -2166,6 +2143,37 @@
     const freq   = parseInt(document.getElementById('instFreq')?.value) || 6;
     const moneda = document.getElementById('instMoneda')?.value || 'USD';
     const flujosManual = document.getElementById('instFlujosManual')?.value || '';
+    const chequePrec = parseFloat(document.getElementById('instChequePrec')?.value) || 0;
+    const chequeMon  = document.getElementById('instChequeMon')?.value || 'ARS';
+    const emisor     = document.getElementById('instEmisor')?.value.trim() || '';
+    const ticker = document.getElementById('instTicker')?.value.trim().toUpperCase();
+
+    // Preview especial para cheque
+    if (tipo === 'Cheque') {
+      if (!venc || !chequePrec) {
+        preview.style.color = 'var(--text-faint)';
+        preview.textContent = 'Completá precio de compra y vencimiento para ver la TIR.';
+        return;
+      }
+      const vtoD = new Date(venc + 'T00:00:00');
+      const hoyD = new Date(); hoyD.setHours(0,0,0,0);
+      const dias = Math.max(1, (vtoD - hoyD) / 86400000);
+      const tirDiaria = (100 / chequePrec) ** (1/dias) - 1;
+      const tirMensual = ((1 + tirDiaria) ** 30 - 1) * 100;
+      const tirAnual = ((1 + tirDiaria) ** 365 - 1) * 100;
+      const descuento = 100 - chequePrec;
+      const sym = chequeMon === 'USD' ? 'U$' : '$';
+      preview.style.color = 'var(--green)';
+      preview.textContent = [
+        `✓ Cheque${emisor ? ` — ${emisor}` : ''} · ${chequeMon} · ${Math.round(dias)} días`,
+        `  Pagás: ${sym}${chequePrec.toFixed(2)} → Cobrás: ${sym}100.00`,
+        `  Descuento: ${sym}${descuento.toFixed(2)} (${(descuento/chequePrec*100).toFixed(2)}% sobre inversión)`,
+        `  TIR: ${tirMensual.toFixed(2)}% TEM · ${tirAnual.toFixed(2)}% TEA`,
+      ].join('\n');
+      const tirEl = document.getElementById('instChequeTirPreview');
+      if (tirEl) tirEl.textContent = `TIR: ${tirMensual.toFixed(2)}% TEM · ${tirAnual.toFixed(2)}% TEA · ${Math.round(dias)} días`;
+      return;
+    }
 
     if (!ticker || !venc) {
       preview.style.color = 'var(--text-faint)';
