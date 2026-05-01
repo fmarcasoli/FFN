@@ -1249,7 +1249,7 @@
         return true;
       }).map(scaleRow);
 
-      if (VIEW_MODE === 'portfolio') rows = rows.filter(r => r && r.vn > 0);
+      if (s.VIEW_MODE === 'portfolio') rows = rows.filter(r => r && r.vn > 0);
       else rows = rows.filter(r => r !== null);
       return rows;
     }
