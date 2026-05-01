@@ -598,6 +598,7 @@
           <optgroup label="── Tasa fija (ARS)">
             <option value="LECAP">LECAP (cero cupón ARS, corto plazo)</option>
             <option value="BONCAP">BONCAP (cero cupón ARS, largo plazo)</option>
+            <option value="Cheque">Cheque / CPD (descuento, bullet ARS o USD)</option>
           </optgroup>
           <optgroup label="── Ajustables (ARS)">
             <option value="BONCER cero">BONCER cero cupón (CER, bullet)</option>
@@ -663,6 +664,37 @@
           <option value="USD">USD</option>
           <option value="ARS">ARS</option>
         </select>
+      </div>
+    </div>
+
+    <!-- Campos específicos de Cheque / CPD -->
+    <div id="instChequeRow" style="display:none;margin-bottom:12px;border:1px dashed rgba(245,185,66,0.3);border-radius:6px;padding:12px;background:rgba(245,185,66,0.04)">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--accent);margin-bottom:10px">
+        📄 Cheque / CPD — Datos de descuento
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <label class="cost-item-label">Emisor / Empresa</label>
+          <input type="text" class="modal-input" id="instEmisor" placeholder="Ej: ACME SA" style="margin-top:4px">
+        </div>
+        <div>
+          <label class="cost-item-label">Moneda del cheque</label>
+          <select id="instChequeMon" class="modal-input" style="margin-top:4px">
+            <option value="ARS">ARS</option>
+            <option value="USD">USD</option>
+          </select>
+        </div>
+        <div>
+          <label class="cost-item-label">Valor nominal (VN a cobrar)</label>
+          <input type="number" class="modal-input" id="instChequeVN" step="0.01" min="0" placeholder="100" style="margin-top:4px" title="El monto que vas a cobrar al vencimiento, base 100">
+        </div>
+        <div>
+          <label class="cost-item-label">Precio de compra (% del VN)</label>
+          <input type="number" class="modal-input" id="instChequePrec" step="0.01" min="0" max="100" placeholder="ej: 96.50" style="margin-top:4px" title="Cuánto pagás hoy por 100 de VN. El descuento es VN − precio.">
+        </div>
+      </div>
+      <div id="instChequeTirPreview" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-faint);line-height:1.8;padding:8px;background:var(--bg);border-radius:4px;min-height:32px">
+        Completá precio y vencimiento para ver la TIR implícita.
       </div>
     </div>
 

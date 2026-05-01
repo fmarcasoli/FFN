@@ -1981,7 +1981,7 @@
     });
     on('modalAddInstCancel', 'click', () => document.getElementById('modalAddInst')?.classList.remove('open'));
     on('modalAddInstConfirm', 'click', () => { if (addCustomInstrumentGlobal()) document.getElementById('modalAddInst')?.classList.remove('open'); });
-    ['instTicker','instEmision','instVencimiento','instTem','instCupon','instSpread','instTasaBase','instAmortCuotas','instFreq','instMoneda','instFlujosManual']
+    ['instTicker','instEmision','instVencimiento','instTem','instCupon','instSpread','instTasaBase','instAmortCuotas','instFreq','instMoneda','instFlujosManual','instEmisor','instChequePrec','instChequeMon']
       .forEach(id => document.getElementById(id)?.addEventListener('input', actualizarPreviewInst));
     document.getElementById('instTipo')?.addEventListener('change', actualizarCamposInst);
   }
@@ -2101,6 +2101,7 @@
     const esCupon       = tipo === 'BONCER' || tipo === 'Bonar' || tipo === 'ON';
     const esTamar       = tipo === 'TAMAR' || tipo === 'DUAL';
     const esDL          = tipo === 'Dólar Linked';
+    const esCheque      = tipo === 'Cheque';
     const tieneFreq     = esCupon || esTamar || esDL;
     const tieneMoneda   = tipo === 'ON' || tipo === 'Bonar';
 
@@ -2116,6 +2117,12 @@
     show('instAmortRow',    esCupon || esTamar);
     show('instFreqRow',     tieneFreq);
     show('instMonedaRow',   tieneMoneda);
+    show('instChequeRow',   esCheque);
+
+    // Cheque: no necesita TEM ni cupón ni fechas de emisión obligatorias
+    // Los campos de precio general se ocultan porque usa el propio precio del cheque
+    const precioGenRow = document.querySelector('#instPrecio')?.closest('div[style*="border"]');
+    if (precioGenRow) precioGenRow.style.display = esCheque ? 'none' : '';
 
     actualizarPreviewInst();
   }
@@ -2123,7 +2130,31 @@
   function actualizarPreviewInst() {
     const preview = document.getElementById('instPreview');
     if (!preview) return;
-    const ticker = document.getElementById('instTicker')?.value.trim().toUpperCase();
+    const chequePrec = parseFloat(document.getElementById('instChequePrec')?.value) || 0;
+    const chequeMon  = document.getElementById('instChequeMon')?.value || 'ARS';
+    const emisor     = document.getElementById('instEmisor')?.value.trim() || '';
+
+    // Preview especial para cheque: mostrar TIR implícita
+    if (tipo === 'Cheque' && venc && chequePrec > 0) {
+      const vtoD = new Date(venc + 'T00:00:00');
+      const hoyD = new Date(); hoyD.setHours(0,0,0,0);
+      const dias = Math.max(1, (vtoD - hoyD) / 86400000);
+      const tirDiaria = (100 / chequePrec) ** (1/dias) - 1;
+      const tirMensual = ((1 + tirDiaria) ** 30 - 1) * 100;
+      const tirAnual = ((1 + tirDiaria) ** 365 - 1) * 100;
+      const descuento = 100 - chequePrec;
+      const sym = chequeMon === 'USD' ? 'U$' : '$';
+      preview.style.color = 'var(--green)';
+      preview.textContent = [
+        `✓ Cheque${emisor ? ` — ${emisor}` : ''} · ${chequeMon} · ${Math.round(dias)} días`,
+        `  Precio compra: ${sym}${chequePrec.toFixed(2)} → cobras ${sym}100.00`,
+        `  Descuento: ${sym}${descuento.toFixed(2)} (${(descuento/chequePrec*100).toFixed(2)}% sobre inversión)`,
+        `  TIR: ${tirMensual.toFixed(2)}% TEM · ${tirAnual.toFixed(2)}% TEA`,
+      ].join('\n');
+      const tirEl = document.getElementById('instChequeTirPreview');
+      if (tirEl) tirEl.textContent = `TIR: ${tirMensual.toFixed(2)}% TEM · ${tirAnual.toFixed(2)}% TEA · ${Math.round(dias)} días`;
+      return;
+    }
     const tipo   = document.getElementById('instTipo')?.value;
     const emision= document.getElementById('instEmision')?.value;
     const venc   = document.getElementById('instVencimiento')?.value;
@@ -2274,6 +2305,21 @@
     } else if (cfg.tipo === 'Bonar' || cfg.tipo === 'ON') {
       const mn = cfg.moneda || 'USD';
       buildCouponRows(cfg.tipo, mn, cfg.cupon||0, freq, nCuotas);
+
+    } else if (cfg.tipo === 'Cheque') {
+      // Bullet único. Interés = descuento implícito (VN - precio_compra).
+      const mn = cfg.moneda || 'ARS';
+      const descuento = cfg.chequePrec > 0 ? round(100 - cfg.chequePrec) : 0;
+      flujos.push({
+        Fecha_Pago: cfg.vencimiento, Anio: vto.getFullYear(), Mes: vto.getMonth()+1,
+        Bono: cfg.ticker, Tipo_Instrumento: 'Cheque', Ley: 'Privado',
+        Moneda: mn, Moneda_Nativa: mn,
+        Estado: est(vto), Residual_Inicio_Pct: 1, Tasa_Anual_Pct: 0,
+        Interes_USD: descuento,
+        Amortizacion_USD: 100,
+        Flujo_Total_USD: round(100 + descuento),
+        _emisor: cfg.emisor || '',
+      });
     }
 
     return flujos.sort((a,b) => a.Fecha_Pago.localeCompare(b.Fecha_Pago));
@@ -2291,37 +2337,45 @@
     const tasaBase= parseFloat(document.getElementById('instTasaBase')?.value) || 33.61;
     const nCuotas = parseInt(document.getElementById('instAmortCuotas')?.value) || 1;
     const freq    = parseInt(document.getElementById('instFreq')?.value) || 6;
-    const moneda  = document.getElementById('instMoneda')?.value || 'USD';
+    const moneda  = tipo === 'Cheque'
+      ? (document.getElementById('instChequeMon')?.value || 'ARS')
+      : (document.getElementById('instMoneda')?.value || 'USD');
     const precio  = parseFloat(document.getElementById('instPrecio')?.value);
     const precioMoneda = document.getElementById('instPrecioMoneda')?.value || 'ARS';
     const flujosManual = document.getElementById('instFlujosManual')?.value || '';
+    // Campos específicos de cheque
+    const emisor      = document.getElementById('instEmisor')?.value.trim() || '';
+    const chequePrec  = parseFloat(document.getElementById('instChequePrec')?.value) || 0;
 
     if (!ticker) { alert('Ingresá el ticker.'); return false; }
     if (!venc)   { alert('Ingresá la fecha de vencimiento.'); return false; }
     if (s.BOND_META[ticker]) { alert(`"${ticker}" ya existe.`); return false; }
 
     const cfg = { ticker, tipo, emision: emision||venc, vencimiento: venc,
-                  tem, cupon, spread, tasaBase, amortCuotas: nCuotas, freq, moneda, flujosManual };
+                  tem, cupon, spread, tasaBase, amortCuotas: nCuotas, freq, moneda,
+                  flujosManual, emisor, chequePrec };
     const flujos = generarFlujosCustom(cfg);
     if (!flujos.length) { alert('Sin flujos generados. Revisá los datos.'); return false; }
 
     flujos.forEach(f => s.DATA.push(f));
 
     // Determinar moneda nativa
-    const arsTypes = ['LECAP','BONCAP','BONCER cero','BONCER','TAMAR','DUAL','Dólar Linked'];
-    const mn = arsTypes.includes(tipo) ? 'ARS' : (tipo === 'ON' ? moneda : 'USD');
+    const arsTypes = ['LECAP','BONCAP','BONCER cero','BONCER','TAMAR','DUAL','Dólar Linked','Cheque'];
+    const mn = arsTypes.includes(tipo) ? (tipo === 'Cheque' ? moneda : 'ARS') : (tipo === 'ON' ? moneda : 'USD');
 
     const [dy, dm, dd] = [venc.slice(8,10), venc.slice(5,7), venc.slice(0,4)];
     s.BOND_META[ticker] = {
-      venc: `${dy}/${dm}/${dd}`, emisor: 'Custom',
+      venc: `${dy}/${dm}/${dd}`, emisor: emisor || 'Custom',
       moneda_nativa: mn, tipo,
       tickers_usd: mn === 'USD' ? [ticker+'D', ticker] : [],
       tickers_ars: [ticker], es_custom: true,
     };
 
-    // Si el usuario cargó precio inicial, lo guardamos en PRICES
-    if (Number.isFinite(precio) && precio > 0) {
-      s.PRICES[ticker] = { price: precio, source: 'manual', ts: Date.now(), market: precioMoneda };
+    // Precio: cheque usa chequePrec, otros usan instPrecio
+    const precioFinal = tipo === 'Cheque' ? chequePrec : precio;
+    const monedaPrecio = tipo === 'Cheque' ? moneda : precioMoneda;
+    if (Number.isFinite(precioFinal) && precioFinal > 0) {
+      s.PRICES[ticker] = { price: precioFinal, source: 'manual', ts: Date.now(), market: monedaPrecio };
     }
 
     Storage.save();
