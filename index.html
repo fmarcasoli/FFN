@@ -24,7 +24,7 @@
     <div class="header-left">
       <div class="eyebrow">Dashboard · Renta Fija Soberana Argentina</div>
       <h1>Flujos de Fondos — Bonos en USD y ARS</h1>
-      <div class="subtitle">Bonares, Globales, BONAR 2027/28/29N y BOPREAL · Base 30/360</div>
+      <div class="subtitle">Bonares, Globales, BONAR 2027/28/29N, BOPREAL y ONs Corporativas · Base 30/360</div>
     </div>
     <div class="view-toggle" id="viewToggle">
       <button class="toggle-btn active" data-mode="unit">Cada VN 100</button>
@@ -560,7 +560,8 @@
 
   <footer>
     <div><span class="footer-tag">Fuente flujos</span> · Decreto 701/2020 · Comunicaciones BCRA B12695 y B12999 · Resoluciones Secretaría de Finanzas (AN29, AO27, AO28)</div>
-    <div><span class="footer-tag">Fuente precios</span> · data912.com · /arg_bonds (Bonares ARS) · /arg_notes (USD-MEP) · /arg_short (LECAPs/BONCAPs) · /arg_cer (CER)</div>
+    <div><span class="footer-tag">ONs corporativas</span> · Datos de cupones/vencimientos son aproximados según prospectos públicos. Verificar contra prospecto original antes de operar.</div>
+    <div><span class="footer-tag">Fuente precios</span> · data912.com · /arg_bonds (Bonares ARS) · /arg_notes (USD-MEP, ONs) · /arg_short (LECAPs/BONCAPs) · /arg_cer (CER)</div>
     <div><span class="footer-tag">Persistencia</span> · Carteras, costos y precios manuales se guardan en localStorage</div>
     <div><span class="footer-tag">Aviso</span> · Los cálculos son estimativos. La TIR neta usa convención 30/360 y asume flujos reinvertidos a la misma tasa. Costos reales pueden variar según broker. No es asesoramiento financiero.</div>
     <div><span class="footer-tag">Actualizado</span> · 21/04/2026</div>
@@ -794,6 +795,86 @@ window.BOND_META_INIT = {
     'TXMJ9':                { venc: '29/06/2029', emisor: 'Tesoro',  moneda_nativa: 'ARS', tipo: 'DUAL',         tickers_usd: [],                 tickers_ars: ['TXMJ9'],        nota: 'DUAL: mejor entre tasa fija y TAMAR. Flujo modelado con tasa fija 7.31% como piso.' },
     'D30S6':                { venc: '30/09/2026', emisor: 'Tesoro',  moneda_nativa: 'ARS', tipo: 'Dólar Linked', tickers_usd: [],                 tickers_ars: ['D30S6'],        nota: 'Dólar Linked: ajusta por TCO oficial. Flujo nominal 100 ARS, ajuste en runtime.' }
   };
+
+  /**
+   * Catálogo de Obligaciones Negociables (ONs) corporativas.
+   * Datos aproximados según prospectos públicos y mercado secundario.
+   * Cupones y fechas verificar contra prospecto original antes de tomar decisiones.
+   * El precio se muestra en USD (MEP/CCL).
+   */
+  window.ON_CATALOG_INIT = [
+    // ── YPF S.A. ──────────────────────────────────────────────────────────────────
+    { ticker:'YCA6',  nombre:'YPF — Clase VI',         emisor:'YPF S.A.',             venc:'2026-03-07', emision:'2021-03-07', cupon:8.75,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['YCA6O'],   tickers_ars:['YCA6']   },
+    { ticker:'YCCH',  nombre:'YPF — Clase H',          emisor:'YPF S.A.',             venc:'2027-07-25', emision:'2022-07-25', cupon:9.00,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['YCCHO'],   tickers_ars:['YCCH']   },
+    { ticker:'YCNO',  nombre:'YPF — Clase N',          emisor:'YPF S.A.',             venc:'2028-07-25', emision:'2023-07-25', cupon:9.00,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['YCNOO'],   tickers_ars:['YCNO']   },
+    { ticker:'YPFAN', nombre:'YPF — Clase XIX',        emisor:'YPF S.A.',             venc:'2031-07-25', emision:'2024-07-25', cupon:8.75,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['YPFANO'],  tickers_ars:['YPFAN']  },
+    // ── PAMPA ENERGÍA ─────────────────────────────────────────────────────────────
+    { ticker:'MGC2',  nombre:'Pampa Energía — Cl.II',  emisor:'Pampa Energía S.A.',   venc:'2027-07-20', emision:'2021-07-20', cupon:9.125, freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['MGC2O'],   tickers_ars:['MGC2']   },
+    { ticker:'MGCF',  nombre:'Pampa Energía — Cl.III', emisor:'Pampa Energía S.A.',   venc:'2031-01-20', emision:'2024-01-20', cupon:9.00,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['MGCFO'],   tickers_ars:['MGCF']   },
+    // ── TELECOM ARGENTINA ─────────────────────────────────────────────────────────
+    { ticker:'TLC6',  nombre:'Telecom — 2026',         emisor:'Telecom Argentina',    venc:'2026-08-06', emision:'2019-08-06', cupon:8.50,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['TLC6O'],   tickers_ars:['TLC6']   },
+    { ticker:'TLCD',  nombre:'Telecom — 2027',         emisor:'Telecom Argentina',    venc:'2027-12-15', emision:'2022-12-15', cupon:8.50,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['TLCDO'],   tickers_ars:['TLCD']   },
+    // ── VISTA ENERGY ──────────────────────────────────────────────────────────────
+    { ticker:'VISTA', nombre:'Vista Energy — 2028',    emisor:'Vista Energy S.A.',    venc:'2028-01-10', emision:'2022-01-10', cupon:6.875, freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['VISTAO'],  tickers_ars:['VISTA']  },
+    { ticker:'VISTB', nombre:'Vista Energy — 2030',    emisor:'Vista Energy S.A.',    venc:'2030-03-25', emision:'2024-03-25', cupon:7.00,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['VISTBO'],  tickers_ars:['VISTB']  },
+    // ── GENNEIA ───────────────────────────────────────────────────────────────────
+    { ticker:'GNCX',  nombre:'Genneia — 2027',         emisor:'Genneia S.A.',         venc:'2027-01-20', emision:'2020-01-20', cupon:8.75,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['GNCXO'],   tickers_ars:['GNCX']   },
+    { ticker:'GNCJ',  nombre:'Genneia — 2028',         emisor:'Genneia S.A.',         venc:'2028-01-20', emision:'2023-01-20', cupon:8.75,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['GNCJO'],   tickers_ars:['GNCJ']   },
+    // ── ALBANESI ──────────────────────────────────────────────────────────────────
+    { ticker:'ALBA',  nombre:'Albanesi — 2026',        emisor:'Albanesi S.A.',        venc:'2026-04-17', emision:'2021-04-17', cupon:8.75,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['ALBAO'],   tickers_ars:['ALBA']   },
+    { ticker:'ALBBC', nombre:'Albanesi — 2031',        emisor:'Albanesi S.A.',        venc:'2031-03-21', emision:'2024-03-21', cupon:9.00,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['ALBBCO'],  tickers_ars:['ALBBC']  },
+    // ── MSU ENERGY ────────────────────────────────────────────────────────────────
+    { ticker:'MSUT',  nombre:'MSU Energy — 2025',      emisor:'MSU Energy S.A.',      venc:'2025-11-01', emision:'2021-11-01', cupon:6.875, freq:6, amortCuotas:3, moneda:'USD', tickers_usd:['MSUTO'],   tickers_ars:['MSUT']   },
+    { ticker:'MSUN',  nombre:'MSU Energy — 2027',      emisor:'MSU Energy S.A.',      venc:'2027-02-01', emision:'2022-02-01', cupon:6.875, freq:6, amortCuotas:3, moneda:'USD', tickers_usd:['MSUNO'],   tickers_ars:['MSUN']   },
+    // ── AEROPUERTOS ARGENTINA 2000 ────────────────────────────────────────────────
+    { ticker:'ARAO',  nombre:'AA2000 — 2031',          emisor:'Aeropuertos Arg 2000', venc:'2031-02-01', emision:'2021-02-01', cupon:6.875, freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['ARAOO'],   tickers_ars:['ARAO']   },
+    { ticker:'ARCD',  nombre:'AA2000 — 2032',          emisor:'Aeropuertos Arg 2000', venc:'2032-07-01', emision:'2024-07-01', cupon:8.75,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['ARCDO'],   tickers_ars:['ARCD']   },
+    // ── CAPEX ─────────────────────────────────────────────────────────────────────
+    { ticker:'CXPA',  nombre:'Capex — 2028',           emisor:'Capex S.A.',           venc:'2028-05-15', emision:'2023-05-15', cupon:9.00,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['CXPAO'],   tickers_ars:['CXPA']   },
+    // ── PAN AMERICAN ENERGY ───────────────────────────────────────────────────────
+    { ticker:'PNDC',  nombre:'PAE — 2027',             emisor:'Pan American Energy',  venc:'2027-07-15', emision:'2022-07-15', cupon:6.25,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['PNDCO'],   tickers_ars:['PNDC']   },
+    { ticker:'PNDA',  nombre:'PAE — 2031',             emisor:'Pan American Energy',  venc:'2031-05-15', emision:'2024-05-15', cupon:7.00,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['PNDAO'],   tickers_ars:['PNDA']   },
+    // ── TGS ───────────────────────────────────────────────────────────────────────
+    { ticker:'TGSU2', nombre:'TGS — 2031',             emisor:'TGS S.A.',             venc:'2031-05-14', emision:'2021-05-14', cupon:6.875, freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['TGSU2O'],  tickers_ars:['TGSU2']  },
+    // ── TGN ───────────────────────────────────────────────────────────────────────
+    { ticker:'TGNO4', nombre:'TGN — 2027',             emisor:'TGN S.A.',             venc:'2027-07-18', emision:'2020-07-18', cupon:8.75,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['TGNO4O'],  tickers_ars:['TGNO4']  },
+    { ticker:'TGNON', nombre:'TGN — 2030',             emisor:'TGN S.A.',             venc:'2030-07-02', emision:'2025-07-02', cupon:8.75,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['TGNONO'],  tickers_ars:['TGNON']  },
+    // ── IRSA ──────────────────────────────────────────────────────────────────────
+    { ticker:'IRCF',  nombre:'IRSA — 2028',            emisor:'IRSA S.A.',            venc:'2028-08-22', emision:'2022-08-22', cupon:8.75,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['IRCFO'],   tickers_ars:['IRCF']   },
+    { ticker:'IRFA',  nombre:'IRSA CP — 2028',         emisor:'IRSA Comercial P.',    venc:'2028-11-07', emision:'2023-11-07', cupon:9.00,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['IRFAO'],   tickers_ars:['IRFA']   },
+    // ── CRESUD ────────────────────────────────────────────────────────────────────
+    { ticker:'CS38',  nombre:'Cresud — 2033',          emisor:'Cresud S.A.',          venc:'2033-02-16', emision:'2022-02-16', cupon:9.00,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['CS38O'],   tickers_ars:['CS38']   },
+    // ── ARCOR ─────────────────────────────────────────────────────────────────────
+    { ticker:'RCCJ',  nombre:'Arcor — 2027',           emisor:'Arcor SAIC',           venc:'2027-07-06', emision:'2022-07-06', cupon:8.75,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['RCCJO'],   tickers_ars:['RCCJ']   },
+    // ── LOMA NEGRA ────────────────────────────────────────────────────────────────
+    { ticker:'LOMA',  nombre:'Loma Negra — 2026',      emisor:'Loma Negra CIASA',     venc:'2026-10-18', emision:'2021-10-18', cupon:7.875, freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['LOMAO'],   tickers_ars:['LOMA']   },
+    // ── METROGAS ──────────────────────────────────────────────────────────────────
+    { ticker:'MGAI',  nombre:'Metrogas — 2027',        emisor:'Metrogas S.A.',        venc:'2027-11-01', emision:'2022-11-01', cupon:9.00,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['MGAIO'],   tickers_ars:['MGAI']   },
+    // ── CGC ───────────────────────────────────────────────────────────────────────
+    { ticker:'CGCD',  nombre:'CGC — 2027',             emisor:'Cía.Gral. de Comb.',   venc:'2027-05-09', emision:'2022-05-09', cupon:9.50,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['CGCDO'],   tickers_ars:['CGCD']   },
+    // ── MASTELLONE ────────────────────────────────────────────────────────────────
+    { ticker:'MASF',  nombre:'Mastellone — 2026',      emisor:'Mastellone Hnos.',     venc:'2026-04-01', emision:'2021-04-01', cupon:9.75,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['MASFO'],   tickers_ars:['MASF']   },
+    // ── BANCO MACRO ───────────────────────────────────────────────────────────────
+    { ticker:'BMAB',  nombre:'Bco.Macro — 2026',       emisor:'Banco Macro S.A.',     venc:'2026-09-08', emision:'2021-09-08', cupon:6.75,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['BMABO'],   tickers_ars:['BMAB']   },
+    // ── BANCO GALICIA ─────────────────────────────────────────────────────────────
+    { ticker:'GALIC', nombre:'Galicia — 2027',         emisor:'Banco Galicia',        venc:'2027-07-19', emision:'2022-07-19', cupon:8.75,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['GALICO'],  tickers_ars:['GALIC']  },
+    // ── TECPETROL ─────────────────────────────────────────────────────────────────
+    { ticker:'TECPO', nombre:'Tecpetrol — 2028',       emisor:'Tecpetrol S.A.',       venc:'2028-12-13', emision:'2023-12-13', cupon:9.50,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['TECPOO'],  tickers_ars:['TECPO']  },
+    // ── EDENOR ────────────────────────────────────────────────────────────────────
+    { ticker:'DENOA', nombre:'Edenor — 2027',          emisor:'Edenor S.A.',          venc:'2027-10-01', emision:'2022-10-01', cupon:9.75,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['DENOAO'],  tickers_ars:['DENOA']  },
+    // ── CENTRAL PUERTO ────────────────────────────────────────────────────────────
+    { ticker:'CEPJ',  nombre:'Central Puerto — 2031',  emisor:'Central Puerto S.A.',  venc:'2031-09-25', emision:'2024-09-25', cupon:9.00,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['CEPJO'],   tickers_ars:['CEPJ']   },
+    // ── TARJETA NARANJA ───────────────────────────────────────────────────────────
+    { ticker:'TNOG',  nombre:'Tarjeta Naranja — 2027', emisor:'Tarjeta Naranja S.A.', venc:'2027-06-15', emision:'2022-06-15', cupon:8.00,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['TNOGO'],   tickers_ars:['TNOG']   },
+    // ── RAIZEN ────────────────────────────────────────────────────────────────────
+    { ticker:'RAIAF', nombre:'Raízen — 2031',          emisor:'Raízen Arg. S.A.',     venc:'2031-04-20', emision:'2024-04-20', cupon:9.00,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['RAIAFO'],  tickers_ars:['RAIAF']  },
+    // ── EDESUR ────────────────────────────────────────────────────────────────────
+    { ticker:'EDSU',  nombre:'Edesur — 2027',          emisor:'Edesur S.A.',          venc:'2027-03-29', emision:'2022-03-29', cupon:9.00,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['EDSUO'],   tickers_ars:['EDSU']   },
+    // ── JOHN DEERE FINANCIAL ──────────────────────────────────────────────────────
+    { ticker:'JDFA',  nombre:'John Deere Fin. — 2026', emisor:'John Deere Financial', venc:'2026-04-15', emision:'2023-04-15', cupon:8.50,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['JDFAO'],   tickers_ars:['JDFA']   },
+    // ── ENEL (ex-ENEL DISTRIBUCIÓN) ───────────────────────────────────────────────
+    { ticker:'CECJ',  nombre:'Cía.Energía Córdoba — 2028', emisor:'CEC S.A.',         venc:'2028-06-15', emision:'2023-06-15', cupon:9.00,  freq:6, amortCuotas:1, moneda:'USD', tickers_usd:['CECJO'],   tickers_ars:['CECJ']   },
+  ];
 </script>
 
 <!-- Input oculto para importar JSON -->

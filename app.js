@@ -1505,13 +1505,27 @@
       const container = document.getElementById('portfolioSections');
       if (!container) return;
 
-      const grupos = { 'Tesoro USD': [], 'BOPREAL': [], 'LECAPs / BONCAPs': [], 'BONCER (CER)': [] };
+      const grupos = {
+        'Tesoro USD': [],
+        'BOPREAL': [],
+        'LECAPs / BONCAPs': [],
+        'BONCER (CER)': [],
+        'Obligaciones Negociables': [],
+        'Custom': [],
+      };
       Object.keys(s.BOND_META).forEach(b => {
         const m = s.BOND_META[b];
         if (m.tipo === 'BOPREAL') grupos['BOPREAL'].push(b);
         else if (m.tipo === 'LECAP' || m.tipo === 'BONCAP') grupos['LECAPs / BONCAPs'].push(b);
         else if (m.tipo === 'BONCER' || m.tipo === 'BONCER cero') grupos['BONCER (CER)'].push(b);
+        else if (m.tipo === 'ON' && (m.es_on_catalog || m.es_custom)) grupos['Obligaciones Negociables'].push(b);
+        else if (m.es_custom) grupos['Custom'].push(b);
         else grupos['Tesoro USD'].push(b);
+      });
+      // Ordenar ONs por vencimiento ascendente
+      grupos['Obligaciones Negociables'].sort((a, b) => {
+        const toISO = v => { const [d,m,y] = v.split('/'); return `${y}-${m}-${d}`; };
+        return toISO(s.BOND_META[a].venc).localeCompare(toISO(s.BOND_META[b].venc));
       });
 
       let html = '';
@@ -1553,6 +1567,7 @@
 
           html += `<div class="bond-input ${hasVal}" data-bono="${b}" data-open-modal>
             <div class="bond-input-header"><span class="bond-input-name">${escapeHtml(b)}${tipoBadge}</span>${currencyToggle}</div>
+            ${meta.nombre ? `<div style="font-size:10px;color:var(--text-dim);margin-bottom:2px;line-height:1.2">${escapeHtml(meta.nombre)}</div>` : ''}
             <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-faint);margin-bottom:4px">Vto ${meta.venc}</div>
             ${priceLabel}
             <div class="bond-input-row" style="margin-bottom:4px" data-nomodal>
@@ -1783,6 +1798,9 @@
 
       // Custom instruments guardados
       loadCustomInstruments();
+
+      // Catálogo de ONs corporativas (siempre desde window.ON_CATALOG_INIT)
+      loadONCatalog();
 
       // Escenarios
       Scenarios.init();
@@ -2409,6 +2427,41 @@
         flujos.forEach(f => s.DATA.push(f));
       });
     } catch(e) { console.warn('loadCustomInstruments', e); }
+  }
+
+  /**
+   * Carga el catálogo de ONs corporativas desde window.ON_CATALOG_INIT.
+   * Genera flujos automáticamente con generarFlujosCustom.
+   * No persiste en localStorage — se regenera en cada carga desde el catálogo.
+   */
+  function loadONCatalog() {
+    const s = AppState.getState();
+    const catalog = window.ON_CATALOG_INIT || [];
+    catalog.forEach(on => {
+      if (s.BOND_META[on.ticker]) return; // ya existe (custom o conflicto)
+      const cfg = {
+        ticker: on.ticker, tipo: 'ON',
+        emision: on.emision, vencimiento: on.venc,
+        cupon: on.cupon, freq: on.freq,
+        amortCuotas: on.amortCuotas || 1,
+        moneda: on.moneda || 'USD',
+        tem: 0, spread: 0, tasaBase: 0, flujosManual: '', emisor: on.emisor, chequePrec: 0,
+      };
+      const flujos = generarFlujosCustom(cfg);
+      if (!flujos.length) return;
+      flujos.forEach(f => s.DATA.push(f));
+      const [vy, vm, vd] = on.venc.split('-');
+      s.BOND_META[on.ticker] = {
+        venc: `${vd}/${vm}/${vy}`,
+        emisor: on.emisor,
+        nombre: on.nombre,
+        moneda_nativa: on.moneda || 'USD',
+        tipo: 'ON',
+        tickers_usd: on.tickers_usd || [],
+        tickers_ars: on.tickers_ars || [],
+        es_on_catalog: true,
+      };
+    });
   }
 
   // Exponer openBondModal al HTML (el modal completo vive en index.html por ahora)
