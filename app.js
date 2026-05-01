@@ -554,6 +554,9 @@
 
       UI.renderPortfolioInputs();
       UI.render();
+
+      // Snapshot automático de curvas
+      if (typeof YieldCurves !== 'undefined') YieldCurves.onPricesUpdated();
     }
 
     return { fetchAll, fetch5min };
@@ -1798,6 +1801,9 @@
         document.getElementById('statusText').textContent = `Precios cargados (${Object.values(s.PRICES).filter(p => p.source==='live').length})`;
       }
 
+      // Inicializar curvas de rendimiento
+      YieldCurves.init();
+
       // Wire eventos
       wireEvents();
 
@@ -2491,6 +2497,296 @@
       info.innerHTML = `<strong>Actualizado:</strong> hace ${minHace} min · Próx. actualización en ${5-minHace%5} min`;
     }
   }, 30000);
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // MÓDULO: YIELD CURVES — curvas de rendimiento + historial diario
+  // ─────────────────────────────────────────────────────────────────────────────
+  const YieldCurves = (() => {
+    const HIST_KEY = 'bonos_curvas_hist_v1';
+    const MAX_SNAPSHOTS = 90; // ~4 meses de días hábiles
+
+    // Grupos de bonos por curva
+    const CURVAS = {
+      usd: {
+        label: 'Soberanos USD',
+        color: '#5aa4e8',
+        bonos: ['AL29 / GD29','AL30 / GD30','AL35 / GD35','AE38 / GD38','AL41 / GD41','GD46','AN29','AO27','AO28','BOPREAL Serie 1','BPD7 (BOPREAL S.1-D)','BOPREAL Serie 3','BOPREAL Serie 4'],
+        priceCurrency: 'USD',
+      },
+      fija: {
+        label: 'Tasa fija (LECAPs/BONCAPs)',
+        color: '#f5b942',
+        bonos: ['S12J6','S29Y6','S30J6','S31L6','S29G6','S30S6','T30J6','T30D6','T15E7','T30E7'],
+        priceCurrency: 'ARS',
+      },
+      cer: {
+        label: 'CER (ajustados por inflación)',
+        color: '#b88ee8',
+        bonos: ['TX26','TX28','TX31','TZXM7','TZXJ7','TZXD7','TZXM8','TZXM9','TZXS8'],
+        priceCurrency: 'ARS',
+      },
+    };
+
+    // Calcular un punto de curva: { bono, plazo_anios, tir, precio }
+    function calcPunto(bono, priceCurrency) {
+      const s = AppState.getState();
+      const meta = s.BOND_META[bono] || {};
+      const h = { vn: 100, currency: priceCurrency }; // VN=100 como base
+      const precio = Finance.effectivePrice(bono, priceCurrency, h, meta, s.PRICES);
+      if (!precio || precio.price <= 0) return null;
+
+      const today = new Date(); today.setHours(0,0,0,0);
+      const flujos = s.DATA.filter(r => r.Bono === bono && r.Estado === 'Pendiente');
+      if (!flujos.length) return null;
+
+      // Plazo al vencimiento en años
+      const vtoFecha = new Date(flujos.at(-1).Fecha_Pago + 'T00:00:00');
+      const plazo = Math.max(0.01, (vtoFecha - today) / (365.25 * 86400000));
+
+      // Flujos escalados a 100 VN
+      const flujosBase = flujos.map(r => ({
+        Fecha_Pago: r.Fecha_Pago,
+        flujo_esc: r.Flujo_Total_USD * 1,  // ya está en base 100
+      }));
+
+      // TIR respecto al precio actual
+      const tir = Finance.calcIRR(-precio.price, flujosBase, today);
+      if (tir === null || !Number.isFinite(tir) || tir < -0.5 || tir > 10) return null;
+
+      return { bono, plazo, tir, precio: precio.price, source: precio.source };
+    }
+
+    // Calcular todas las curvas actuales
+    function calcAllCurvas() {
+      const result = {};
+      Object.entries(CURVAS).forEach(([key, cfg]) => {
+        result[key] = cfg.bonos
+          .map(b => calcPunto(b, cfg.priceCurrency))
+          .filter(Boolean)
+          .sort((a, b) => a.plazo - b.plazo);
+      });
+      return result;
+    }
+
+    // ── Historial ──
+    function loadHist() {
+      try { return JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); }
+      catch { return []; }
+    }
+
+    function saveSnapshot() {
+      const curvas = calcAllCurvas();
+      const totalPuntos = Object.values(curvas).reduce((a, arr) => a + arr.length, 0);
+      if (totalPuntos === 0) return; // sin precios, no guardar
+
+      const today = new Date().toISOString().slice(0, 10);
+      const hist = loadHist();
+
+      // Reemplazar si ya existe el día de hoy
+      const idx = hist.findIndex(s => s.date === today);
+      const snapshot = { date: today, curvas };
+      if (idx >= 0) hist[idx] = snapshot;
+      else hist.push(snapshot);
+
+      // Mantener solo los últimos MAX_SNAPSHOTS días hábiles
+      hist.sort((a, b) => a.date.localeCompare(b.date));
+      if (hist.length > MAX_SNAPSHOTS) hist.splice(0, hist.length - MAX_SNAPSHOTS);
+
+      try { localStorage.setItem(HIST_KEY, JSON.stringify(hist)); }
+      catch (e) {
+        // localStorage lleno: eliminar los más viejos
+        hist.splice(0, 10);
+        try { localStorage.setItem(HIST_KEY, JSON.stringify(hist)); } catch {}
+      }
+
+      return today;
+    }
+
+    // ── Charts ──
+    let charts = {};
+
+    function createCharts() {
+      const mkScatter = (id, label, color) => {
+        const ctx = document.getElementById(id)?.getContext('2d');
+        if (!ctx) return null;
+        return new Chart(ctx, {
+          type: 'scatter',
+          data: {
+            datasets: [
+              {
+                label: 'Hoy',
+                data: [],
+                backgroundColor: color,
+                borderColor: color,
+                pointRadius: 6,
+                pointHoverRadius: 9,
+                showLine: true,
+                tension: 0.3,
+                fill: false,
+                borderWidth: 2,
+              },
+              {
+                label: 'Comparativa',
+                data: [],
+                backgroundColor: 'rgba(255,255,255,0.15)',
+                borderColor: 'rgba(255,255,255,0.3)',
+                pointRadius: 4,
+                showLine: true,
+                tension: 0.3,
+                fill: false,
+                borderWidth: 1,
+                borderDash: [4, 3],
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'nearest', intersect: false },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: '#141821',
+                borderColor: '#2f3747',
+                borderWidth: 1,
+                padding: 12,
+                callbacks: {
+                  title: () => '',
+                  label: ctx => {
+                    const d = ctx.raw;
+                    return [
+                      `${d.bono}`,
+                      `Plazo: ${d.x.toFixed(2)} años`,
+                      `TIR: ${(d.y * 100).toFixed(2)}%`,
+                      `Precio: ${d.precio?.toFixed(2) ?? '—'}`,
+                      d.source === 'manual' ? '(precio manual)' : '(mercado)',
+                    ];
+                  }
+                }
+              }
+            },
+            scales: {
+              x: {
+                type: 'linear',
+                title: { display: true, text: 'Plazo al vencimiento (años)', color: '#8a93a6', font: { size: 11 } },
+                grid: { color: '#1a1f2b' },
+                ticks: { callback: v => v + 'a' }
+              },
+              y: {
+                title: { display: true, text: 'TIR anual (%)', color: '#8a93a6', font: { size: 11 } },
+                grid: { color: '#1a1f2b' },
+                ticks: { callback: v => (v * 100).toFixed(1) + '%' }
+              }
+            }
+          }
+        });
+      };
+
+      charts.usd  = mkScatter('chartCurvaUSD',  'Soberanos USD',  '#5aa4e8');
+      charts.fija = mkScatter('chartCurvaFija', 'Tasa fija ARS',  '#f5b942');
+      charts.cer  = mkScatter('chartCurvaCER',  'CER',            '#b88ee8');
+    }
+
+    function updateCharts(curvasHoy, curvasComp) {
+      Object.entries(CURVAS).forEach(([key, cfg]) => {
+        const ch = charts[key];
+        if (!ch) return;
+        const toPoint = p => ({ x: p.plazo, y: p.tir, bono: p.bono, precio: p.precio, source: p.source });
+        ch.data.datasets[0].data = (curvasHoy[key] || []).map(toPoint);
+        ch.data.datasets[1].data = (curvasComp?.[key] || []).map(toPoint);
+        ch.data.datasets[0].label = 'Hoy';
+        ch.data.datasets[1].label = curvasComp ? `Comparativa` : '';
+        ch.update('none');
+      });
+    }
+
+    function renderHistList() {
+      const hist = loadHist();
+      const el = document.getElementById('curvaHistList');
+      if (!el) return;
+      if (hist.length === 0) {
+        el.innerHTML = '<option value="">Sin historial aún. Los precios se guardan automáticamente.</option>';
+        return;
+      }
+      el.innerHTML = '<option value="">— Elegir fecha comparativa —</option>' +
+        [...hist].reverse().map(s => {
+          const pts = Object.values(s.curvas).reduce((a, arr) => a + arr.length, 0);
+          return `<option value="${s.date}">${s.date} (${pts} puntos)</option>`;
+        }).join('');
+    }
+
+    function renderStats(curvasHoy) {
+      const el = document.getElementById('curvaStats');
+      if (!el) return;
+      const parts = [];
+      Object.entries(CURVAS).forEach(([key, cfg]) => {
+        const pts = curvasHoy[key] || [];
+        if (!pts.length) return;
+        const tirs = pts.map(p => p.tir * 100);
+        const min = Math.min(...tirs).toFixed(2);
+        const max = Math.max(...tirs).toFixed(2);
+        const n = pts.length;
+        parts.push(`<span style="color:${cfg.color};font-weight:600">${cfg.label}</span>: ${n} pts · TIR ${min}%–${max}%`);
+      });
+      el.innerHTML = parts.join(' &nbsp;·&nbsp; ') || 'Sin precios de mercado cargados.';
+    }
+
+    function refresh(compDate) {
+      const curvasHoy = calcAllCurvas();
+      let curvasComp = null;
+      if (compDate) {
+        const hist = loadHist();
+        const snap = hist.find(s => s.date === compDate);
+        if (snap) curvasComp = snap.curvas;
+      }
+      updateCharts(curvasHoy, curvasComp);
+      renderStats(curvasHoy);
+      renderHistList();
+
+      // Mostrar conteo en el badge de historial
+      const hist = loadHist();
+      const badge = document.getElementById('curvaHistBadge');
+      if (badge) badge.textContent = hist.length > 0 ? `${hist.length} días guardados` : '';
+    }
+
+    function init() {
+      createCharts();
+
+      // Listener del selector de comparativa
+      document.getElementById('curvaHistList')?.addEventListener('change', e => {
+        const compDate = e.target.value || null;
+        const compLabel = document.getElementById('curvaCompLabel');
+        if (compLabel) compLabel.textContent = compDate ? `vs ${compDate}` : '';
+        refresh(compDate);
+      });
+
+      // Botón snapshot manual
+      document.getElementById('btnCurvaSnapshot')?.addEventListener('click', () => {
+        const d = saveSnapshot();
+        if (d) { alert(`Snapshot guardado: ${d}`); refresh(); }
+        else alert('Sin precios cargados para guardar snapshot.');
+      });
+
+      // Botón borrar historial
+      document.getElementById('btnCurvaClearHist')?.addEventListener('click', () => {
+        if (!confirm('¿Borrar todo el historial de curvas? No se puede deshacer.')) return;
+        localStorage.removeItem(HIST_KEY);
+        refresh();
+        alert('Historial borrado.');
+      });
+
+      refresh();
+    }
+
+    // Exponer para que PricesAPI lo llame al actualizar precios
+    function onPricesUpdated() {
+      saveSnapshot();
+      const selDate = document.getElementById('curvaHistList')?.value || null;
+      refresh(selDate);
+    }
+
+    return { init, refresh, onPricesUpdated, saveSnapshot };
+  })();
 
   // ── Arrancar ──
   if (document.readyState === 'loading') {
