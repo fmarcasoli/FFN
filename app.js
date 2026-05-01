@@ -98,7 +98,7 @@
       ACTIVE_PF: null,
 
       // Costos de operación
-      COSTS: { comision: 0.5, derechos: 0.045, iva: 21, inflacion: 35 },
+      COSTS: { comision: 0.5, derechos: 0.045, iva: 21, inflacion: 49.4 },
 
       // Escenarios (separados del estado real)
       SCENARIO: {
@@ -107,7 +107,7 @@
         inflacionDelta: 0,
         precioDelta: 0,
         horizonteMeses: 0,          // 0 = sin límite; 1/3/6/12/24/36 = filtrar flujos
-        inflacionMensual: [0,0,0,0,0,0,0,0,0,0,0,0], // 12 valores mensuales %
+        inflacionMensual: [3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4,3.4], // 12 valores mensuales % (último IPC: 3.4%)
         usarInflMensual: false,     // true = usar tabla mensual en vez de anual
       },
 
@@ -473,7 +473,7 @@
       { url: 'https://data912.com/live/arg_bonds', tag: 'ARS' },
       { url: 'https://data912.com/live/arg_notes', tag: 'USD' },
       { url: 'https://data912.com/live/arg_short', tag: 'ARS' },
-      { url: 'https://data912.com/live/arg_cer',   tag: 'ARS' },
+      // arg_cer removido — devuelve 404. Los CER vienen en arg_bonds.
     ];
 
     let _refreshTimer = null;
@@ -873,7 +873,7 @@
       document.getElementById('btnResetScenario')?.addEventListener('click', () => {
         const s = AppState.getState();
         s.SCENARIO = { active: false, tasaDescuento: 0, inflacionDelta: 0, precioDelta: 0,
-                       horizonteMeses: 0, inflacionMensual: new Array(12).fill(0), usarInflMensual: false };
+                       horizonteMeses: 0, inflacionMensual: new Array(12).fill(3.4), usarInflMensual: false };
         s.ACTIVE_SCENARIO_ID = null;
         syncUItoState(); Storage.save(); UI.render();
         renderSavedList();
@@ -913,7 +913,7 @@
         if (s.ACTIVE_SCENARIO_ID === id) {
           s.ACTIVE_SCENARIO_ID = null;
           s.SCENARIO = { active: false, tasaDescuento: 0, inflacionDelta: 0, precioDelta: 0,
-                         horizonteMeses: 0, inflacionMensual: new Array(12).fill(0), usarInflMensual: false };
+                         horizonteMeses: 0, inflacionMensual: new Array(12).fill(3.4), usarInflMensual: false };
           syncUItoState(); UI.render();
         }
         Storage.save(); renderSavedList();
@@ -1816,8 +1816,9 @@
         setTimeout(() => loadingEl.remove(), 500);
       }
 
-      // Precios en vivo (auto-fetch + refresh cada 5min)
+      // Precios en vivo + APIs externas
       PricesAPI.fetch5min().catch(() => {});
+      ExternalAPIs.refresh().catch(() => {});
 
     } catch (err) {
       console.error('Init error:', err);
@@ -2508,20 +2509,19 @@
     const CURVAS = {
       usd: {
         label: 'Soberanos USD', color: '#5aa4e8',
-        bonos: ['AO27','AO28','AL29 / GD29','AN29','AL30 / GD30','BOPREAL Serie 3','BOPREAL Serie 1','BPD7 (BOPREAL S.1-D)','BOPREAL Serie 4','AL35 / GD35','AE38 / GD38','AL41 / GD41','GD46'],
+        bonos: ['AO27','AO28','AL29 / GD29','AN29','AL30 / GD30','BPD7 (BOPREAL S.1-D)','BOPREAL Serie 4','AL35 / GD35','AE38 / GD38','AL41 / GD41','GD46'],
         priceCurrency: 'USD',
-        // Etiquetas cortas para el gráfico
-        labelMap: { 'AO27':'AO27','AO28':'AO28','AL29 / GD29':'AL29','AN29':'AN29','AL30 / GD30':'AL30','BOPREAL Serie 3':'BPS3','BOPREAL Serie 1':'BPS1','BPD7 (BOPREAL S.1-D)':'BPD7','BOPREAL Serie 4':'BPS4','AL35 / GD35':'AL35','AE38 / GD38':'AE38','AL41 / GD41':'AL41','GD46':'GD46' },
+        labelMap: { 'AO27':'AO27','AO28':'AO28','AL29 / GD29':'AL29','AN29':'AN29','AL30 / GD30':'AL30','BPD7 (BOPREAL S.1-D)':'BPD7','BOPREAL Serie 4':'BPS4','AL35 / GD35':'AL35','AE38 / GD38':'AE38','AL41 / GD41':'AL41','GD46':'GD46' },
       },
       fija: {
         label: 'Tasa fija ARS', color: '#f5b942',
-        bonos: ['S30A6','S12J6','S29Y6','S30J6','T30J6','S31L6','S29G6','S30S6','T30D6','T15E7','T30E7'],
+        bonos: ['S12J6','S29Y6','T30J6','S31L6','S30S6','T15E7'],
         priceCurrency: 'ARS',
         labelMap: {},
       },
       cer: {
         label: 'CER', color: '#b88ee8',
-        bonos: ['TX26','TZXM7','TZXJ7','TZXD7','TZXM8','TZXS8','TX28','TZXM9','TX31'],
+        bonos: ['TX26','TZXM7','TZXD7','TZXS8','TX28','TZXM9','TX31'],
         priceCurrency: 'ARS',
         labelMap: {},
       },
@@ -2885,22 +2885,27 @@
     // Grupos de bonos por curva
     const CURVAS = {
       usd: {
-        label: 'Soberanos USD',
-        color: '#5aa4e8',
-        bonos: ['AL29 / GD29','AL30 / GD30','AL35 / GD35','AE38 / GD38','AL41 / GD41','GD46','AN29','AO27','AO28','BOPREAL Serie 1','BPD7 (BOPREAL S.1-D)','BOPREAL Serie 3','BOPREAL Serie 4'],
+        label: 'Soberanos USD', color: '#5aa4e8',
+        // BOPREAL Serie 1/3 sin precio en data912 → excluidos hasta confirmar ticker
+        bonos: ['AO27','AO28','AL29 / GD29','AN29','AL30 / GD30','BPD7 (BOPREAL S.1-D)','BOPREAL Serie 4','AL35 / GD35','AE38 / GD38','AL41 / GD41','GD46'],
         priceCurrency: 'USD',
+        labelMap: { 'AO27':'AO27','AO28':'AO28','AL29 / GD29':'AL29','AN29':'AN29','AL30 / GD30':'AL30','BPD7 (BOPREAL S.1-D)':'BPD7','BOPREAL Serie 4':'BPS4','AL35 / GD35':'AL35','AE38 / GD38':'AE38','AL41 / GD41':'AL41','GD46':'GD46' },
       },
       fija: {
-        label: 'Tasa fija (LECAPs/BONCAPs)',
-        color: '#f5b942',
-        bonos: ['S12J6','S29Y6','S30J6','S31L6','S29G6','S30S6','T30J6','T30D6','T15E7','T30E7'],
+        label: 'Tasa fija ARS', color: '#f5b942',
+        // Confirmados con precio: S12J6, S29Y6, T30J6, S31L6, S30S6, T15E7
+        // Sin precio en data912: S30A6 (vencida), S30J6, T30D6, T30E7, S29G6
+        bonos: ['S12J6','S29Y6','T30J6','S31L6','S30S6','T15E7'],
         priceCurrency: 'ARS',
+        labelMap: {},
       },
       cer: {
-        label: 'CER (ajustados por inflación)',
-        color: '#b88ee8',
-        bonos: ['TX26','TX28','TX31','TZXM7','TZXJ7','TZXD7','TZXM8','TZXM9','TZXS8'],
+        label: 'CER', color: '#b88ee8',
+        // Confirmados: TX26, TZXM7, TZXD7, TZXS8, TX28, TZXM9, TX31
+        // Sin precio en data912: TZXJ7, TZXM8
+        bonos: ['TX26','TZXM7','TZXD7','TZXS8','TX28','TZXM9','TX31'],
         priceCurrency: 'ARS',
+        labelMap: {},
       },
     };
 
@@ -3125,6 +3130,90 @@
       const badge = document.getElementById('curvaHistBadge');
       if (badge) badge.textContent = hist.length > 0 ? `${hist.length} días guardados` : '';
     }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // EXTERNAL APIs — BCRA (CER diario) + argentinadatos (IPC mensual)
+  // Ambas APIs tienen CORS habilitado para browsers. Fallan desde server-side.
+  // ─────────────────────────────────────────────────────────────────────────────
+  const ExternalAPIs = (() => {
+    const BCRA_BASE = 'https://api.bcra.gob.ar/estadisticas/v2.0';
+    const ADATA_BASE = 'https://argentinadatos.com/api/v1';
+
+    async function safeFetch(url) {
+      try {
+        const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return await r.json();
+      } catch { return null; }
+    }
+
+    // Trae el valor del CER del día (variable 4 en BCRA)
+    async function fetchCER() {
+      const today = new Date().toISOString().slice(0,10);
+      const hace30 = new Date(Date.now() - 30*86400000).toISOString().slice(0,10);
+      const data = await safeFetch(`${BCRA_BASE}/DatosVariable/4/${hace30}/${today}`);
+      if (!data?.results?.length) return null;
+      const ultimo = data.results.at(-1);
+      return { fecha: ultimo.fecha, valor: ultimo.valor }; // ej: {fecha:'2026-04-30', valor: 1458.23}
+    }
+
+    // Trae inflación mensual IPC (últimos 12 meses)
+    async function fetchIPC() {
+      const data = await safeFetch(`${ADATA_BASE}/finanzas/indices/inflacion`);
+      if (!Array.isArray(data) || !data.length) return null;
+      // Retorna array de {fecha: "YYYY-MM-DD", valor: 3.7} — ya en %
+      return data.slice(-12).map(d => ({ fecha: d.fecha, pct: d.valor }));
+    }
+
+    // Trae tipo de cambio oficial
+    async function fetchTCO() {
+      const data = await safeFetch(`${ADATA_BASE}/finanzas/tipo-cambio/oficial`);
+      if (!Array.isArray(data) || !data.length) return null;
+      const ultimo = data.at(-1);
+      return { fecha: ultimo.fecha, valor: ultimo.venta || ultimo.valor };
+    }
+
+    // Actualizar todo y mostrar en UI
+    async function refresh() {
+      const [cer, ipc, tco] = await Promise.all([fetchCER(), fetchIPC(), fetchTCO()]);
+
+      // CER → mostrar en el panel de costos y en la curva
+      const cerEl = document.getElementById('bcracer_valor');
+      if (cerEl && cer) {
+        cerEl.textContent = `CER ${cer.fecha}: ${cer.valor.toFixed(2)}`;
+        cerEl.style.display = '';
+      }
+
+      // IPC → auto-poblar la tabla de inflación mensual en escenarios
+      if (ipc?.length) {
+        const s = AppState.getState();
+        // Solo poblar si el usuario no modificó los valores (todos siguen en 3.4 o en 0)
+        const esPorDefecto = s.SCENARIO.inflacionMensual.every(v => v === 3.4 || v === 0);
+        if (esPorDefecto) {
+          ipc.forEach((d, i) => { if (i < 12) s.SCENARIO.inflacionMensual[i] = d.pct; });
+          Scenarios.syncUItoState();
+        }
+        // Mostrar el último dato
+        const ipcEl = document.getElementById('ipc_ultimo');
+        if (ipcEl) {
+          const ult = ipc.at(-1);
+          ipcEl.textContent = `IPC ${ult.fecha.slice(0,7)}: ${ult.pct}% mensual`;
+          ipcEl.style.display = '';
+        }
+      }
+
+      // TCO → mostrar en status bar
+      const tcoEl = document.getElementById('tco_valor');
+      if (tcoEl && tco) {
+        tcoEl.textContent = `TCO: $${tco.valor.toFixed(2)}`;
+        tcoEl.style.display = '';
+      }
+
+      return { cer, ipc, tco };
+    }
+
+    return { refresh, fetchCER, fetchIPC, fetchTCO };
+  })();
 
   // ── Arrancar ──
   if (document.readyState === 'loading') {

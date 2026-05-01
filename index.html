@@ -40,6 +40,12 @@
     <div class="prices-info" id="pricesInfo">
       Los precios se actualizan automáticamente cada 5 minutos. También podés refrescar manualmente.
     </div>
+    <!-- Datos BCRA / argentinadatos -->
+    <div style="display:flex;gap:14px;align-items:center;flex-shrink:0">
+      <span id="bcracer_valor" style="display:none;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple)" title="Índice CER diario — BCRA"></span>
+      <span id="ipc_ultimo" style="display:none;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim)" title="IPC mensual — argentinadatos"></span>
+      <span id="tco_valor" style="display:none;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent-dim)" title="Tipo de cambio oficial — argentinadatos"></span>
+    </div>
     <div class="prices-actions">
       <span id="nextRefresh" style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-faint); margin-right: 8px;"></span>
       <button class="btn primary" id="btnFetchPrices" title="Refrescar precios manualmente desde data912.com">
@@ -727,10 +733,10 @@ window.BOND_META_INIT = {
     'AN29':                 { venc: '30/11/2029', emisor: 'Tesoro',  moneda_nativa: 'USD', tipo: 'Bonar',        tickers_usd: ['AN29D'],          tickers_ars: ['AN29']         },
     'AO27':                 { venc: '30/10/2027', emisor: 'Tesoro',  moneda_nativa: 'USD', tipo: 'Bonar',        tickers_usd: ['AO27D'],          tickers_ars: ['AO27']         },
     'AO28':                 { venc: '31/10/2028', emisor: 'Tesoro',  moneda_nativa: 'USD', tipo: 'Bonar',        tickers_usd: ['AO28D'],          tickers_ars: ['AO28']         },
-    'BOPREAL Serie 1':      { venc: '31/10/2027', emisor: 'BCRA',    moneda_nativa: 'USD', tipo: 'BOPREAL',      tickers_usd: ['BPO27D'],         tickers_ars: ['BPO27']        },
-    'BPD7 (BOPREAL S.1-D)': { venc: '31/10/2027', emisor: 'BCRA',    moneda_nativa: 'USD', tipo: 'BOPREAL',      tickers_usd: ['BPD7D','BPOD7D'], tickers_ars: ['BPD7','BPOD7'] },
-    'BOPREAL Serie 3':      { venc: '31/05/2026', emisor: 'BCRA',    moneda_nativa: 'USD', tipo: 'BOPREAL',      tickers_usd: ['BPY26D','BPJ5D'], tickers_ars: ['BPY26','BPJ5']  },
-    'BOPREAL Serie 4':      { venc: '31/10/2028', emisor: 'BCRA',    moneda_nativa: 'USD', tipo: 'BOPREAL',      tickers_usd: ['BPB7D','BPY28D'], tickers_ars: ['BPB7','BPY28']  },
+    'BOPREAL Serie 1':      { venc: '31/10/2027', emisor: 'BCRA',    moneda_nativa: 'USD', tipo: 'BOPREAL',      tickers_usd: ['BPO27D','BPS1D'],   tickers_ars: ['BPO27','BPS1']  },
+    'BPD7 (BOPREAL S.1-D)': { venc: '31/10/2027', emisor: 'BCRA',    moneda_nativa: 'USD', tipo: 'BOPREAL',      tickers_usd: ['BPD70','BPOD7D','BPD7D'], tickers_ars: ['BPD70','BPD7'] },
+    'BOPREAL Serie 3':      { venc: '31/05/2026', emisor: 'BCRA',    moneda_nativa: 'USD', tipo: 'BOPREAL',      tickers_usd: ['BPS3D','BPY26D','BPJ5D'], tickers_ars: ['BPS3','BPY26'] },
+    'BOPREAL Serie 4':      { venc: '31/10/2028', emisor: 'BCRA',    moneda_nativa: 'USD', tipo: 'BOPREAL',      tickers_usd: ['BPB70','BPR28D','BPB7D'], tickers_ars: ['BPB70','BPB7'] },
     'S30A6':                { venc: '30/04/2026', emisor: 'Tesoro',  moneda_nativa: 'ARS', tipo: 'LECAP',        tickers_usd: [],                 tickers_ars: ['S30A6']        },
     'S29Y6':                { venc: '29/05/2026', emisor: 'Tesoro',  moneda_nativa: 'ARS', tipo: 'LECAP',        tickers_usd: [],                 tickers_ars: ['S29Y6']        },
     'S30J6':                { venc: '30/06/2026', emisor: 'Tesoro',  moneda_nativa: 'ARS', tipo: 'LECAP',        tickers_usd: [],                 tickers_ars: ['S30J6']        },
