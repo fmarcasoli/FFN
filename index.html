@@ -210,11 +210,18 @@
               Ingresá la inflación mensual estimada para cada mes. El mes 12 se usa como tasa estacionaria para flujos más allá del horizonte.
             </div>
             <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px">
-              ${['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'].map((m,i)=>`
-              <div>
-                <label style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-faint);display:block;margin-bottom:2px">M${i+1} ${m} %</label>
-                <input type="number" id="scenInfl_${i}" class="cost-input" step="0.1" min="0" placeholder="3.0" style="width:100%">
-              </div>`).join('')}
+              <div><label style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-faint);display:block;margin-bottom:2px">M1 Ene %</label><input type="number" id="scenInfl_0" class="cost-input" step="0.1" min="0" placeholder="3.0" style="width:100%"></div>
+              <div><label style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-faint);display:block;margin-bottom:2px">M2 Feb %</label><input type="number" id="scenInfl_1" class="cost-input" step="0.1" min="0" placeholder="3.0" style="width:100%"></div>
+              <div><label style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-faint);display:block;margin-bottom:2px">M3 Mar %</label><input type="number" id="scenInfl_2" class="cost-input" step="0.1" min="0" placeholder="3.0" style="width:100%"></div>
+              <div><label style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-faint);display:block;margin-bottom:2px">M4 Abr %</label><input type="number" id="scenInfl_3" class="cost-input" step="0.1" min="0" placeholder="3.0" style="width:100%"></div>
+              <div><label style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-faint);display:block;margin-bottom:2px">M5 May %</label><input type="number" id="scenInfl_4" class="cost-input" step="0.1" min="0" placeholder="3.0" style="width:100%"></div>
+              <div><label style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-faint);display:block;margin-bottom:2px">M6 Jun %</label><input type="number" id="scenInfl_5" class="cost-input" step="0.1" min="0" placeholder="3.0" style="width:100%"></div>
+              <div><label style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-faint);display:block;margin-bottom:2px">M7 Jul %</label><input type="number" id="scenInfl_6" class="cost-input" step="0.1" min="0" placeholder="3.0" style="width:100%"></div>
+              <div><label style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-faint);display:block;margin-bottom:2px">M8 Ago %</label><input type="number" id="scenInfl_7" class="cost-input" step="0.1" min="0" placeholder="3.0" style="width:100%"></div>
+              <div><label style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-faint);display:block;margin-bottom:2px">M9 Sep %</label><input type="number" id="scenInfl_8" class="cost-input" step="0.1" min="0" placeholder="3.0" style="width:100%"></div>
+              <div><label style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-faint);display:block;margin-bottom:2px">M10 Oct %</label><input type="number" id="scenInfl_9" class="cost-input" step="0.1" min="0" placeholder="3.0" style="width:100%"></div>
+              <div><label style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-faint);display:block;margin-bottom:2px">M11 Nov %</label><input type="number" id="scenInfl_10" class="cost-input" step="0.1" min="0" placeholder="3.0" style="width:100%"></div>
+              <div><label style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-faint);display:block;margin-bottom:2px">M12 Dic %</label><input type="number" id="scenInfl_11" class="cost-input" step="0.1" min="0" placeholder="3.0" style="width:100%"></div>
             </div>
             <div style="margin-top:10px;font-size:10px;color:var(--text-faint);font-family:'JetBrains Mono',monospace">
               Ej: Si estimás 3% por mes → TNA ≈ 42.6% · TEA ≈ 42.6% · CER proyectado capitalizado mes a mes.
