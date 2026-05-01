@@ -493,9 +493,17 @@
   </div>
 
   <!-- Stats rápidas -->
-  <div id="curvaStats" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);margin-bottom:20px;line-height:1.8;background:var(--bg-panel);border:1px solid var(--border);border-radius:10px;padding:12px 18px"></div>
+  <div id="curvaStats" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);margin-bottom:16px;line-height:1.8;background:var(--bg-panel);border:1px solid var(--border);border-radius:10px;padding:12px 18px"></div>
 
-  <!-- Curva USD -->
+  <!-- Diagnóstico de tickers -->
+  <details id="curvaDiagPanel" style="background:var(--bg-panel);border:1px solid var(--border);border-radius:10px;margin-bottom:20px;overflow:hidden">
+    <summary style="padding:12px 18px;cursor:pointer;list-style:none;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-dim);display:flex;justify-content:space-between;user-select:none">
+      <span>🔍 Diagnóstico — ¿por qué aparecen pocos puntos?</span><span style="transition:transform 0.2s">▾</span>
+    </summary>
+    <div id="curvaDiagContent" style="padding:14px 18px;border-top:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);line-height:1.9">
+      Actualizá los precios para ver el diagnóstico.
+    </div>
+  </details>
   <div class="curva-chart-wrap">
     <div class="curva-header">
       <div>

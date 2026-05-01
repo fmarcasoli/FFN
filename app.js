@@ -2779,6 +2779,46 @@
       el.innerHTML = parts.join(' &nbsp;&nbsp;|&nbsp;&nbsp; ') || 'Sin precios de mercado. Actualizá precios para ver las curvas.';
     }
 
+    function renderDiag() {
+      const el = document.getElementById('curvaDiagContent');
+      if (!el) return;
+      const s = AppState.getState();
+      const allPriceKeys = Object.keys(s.PRICES);
+      if (!allPriceKeys.length) {
+        el.innerHTML = '<span style="color:var(--red)">Sin precios cargados. Actualizá los precios primero.</span>';
+        return;
+      }
+
+      let html = `<div style="margin-bottom:10px;color:var(--text)">Tickers en PRICES: <strong>${allPriceKeys.length}</strong> — muestra: ${allPriceKeys.slice(0,14).join(', ')}${allPriceKeys.length > 14 ? '…' : ''}</div>`;
+      html += `<div style="margin-bottom:10px;font-size:10px;color:var(--text-faint)">✅ precio encontrado &nbsp;·&nbsp; ❌ ticker no coincide con lo que devuelve data912</div>`;
+
+      Object.entries(CURVAS).forEach(([key, cfg]) => {
+        html += `<div style="margin-top:14px;color:${cfg.color};font-weight:600;letter-spacing:0.08em;margin-bottom:4px">${cfg.label.toUpperCase()}</div>`;
+        cfg.bonos.forEach(bono => {
+          const meta = s.BOND_META[bono] || {};
+          const tickers = cfg.priceCurrency === 'ARS' ? (meta.tickers_ars || []) : (meta.tickers_usd || []);
+          const foundKey = tickers.find(t => s.PRICES[t]);
+          const foundPrice = foundKey ? s.PRICES[foundKey] : null;
+          const shortLabel = (cfg.labelMap?.[bono] || bono.split('/')[0].trim()).padEnd(8);
+          html += `<div style="display:grid;grid-template-columns:20px 90px 160px 1fr;gap:4px;align-items:baseline">
+            <span style="color:${foundKey?'var(--green)':'var(--red)'}">${foundKey ? '✅' : '❌'}</span>
+            <span style="color:var(--text)">${shortLabel}</span>
+            <span style="color:var(--text-faint)">busca: <em>${tickers.join(', ')}</em></span>
+            <span style="color:${foundKey?'var(--green)':'var(--red)'}">${foundKey ? `→ ${foundKey} = ${foundPrice.price.toFixed(2)}` : '→ no encontrado'}</span>
+          </div>`;
+        });
+      });
+
+      html += `<div style="margin-top:16px;padding-top:12px;border-top:1px dashed var(--border);color:var(--text-faint);font-size:10px;line-height:1.8">
+        <strong style="color:var(--text)">Si ves ❌:</strong> el ticker en data912 es distinto al de BOND_META.<br>
+        Abrí F12 → Console y ejecutá:<br>
+        <code style="background:var(--bg);padding:3px 8px;border-radius:3px;display:inline-block;margin-top:4px">console.table(Object.fromEntries(Object.entries(AppState.getState().PRICES).filter(([k])=>!k.endsWith('D')).slice(0,40)))</code><br>
+        Eso muestra todos los tickers ARS con sus precios. Buscás TX26, TZXM7, S30A6, etc. y me avisás los nombres reales.
+      </div>`;
+
+      el.innerHTML = html;
+    }
+
     function refresh(compDate) {
       const curvasHoy = calcAllCurvas();
       let curvasComp = null;
@@ -2789,6 +2829,7 @@
       updateCharts(curvasHoy, curvasComp);
       renderStats(curvasHoy);
       renderHistList();
+      renderDiag();
     }
 
     function init() {
