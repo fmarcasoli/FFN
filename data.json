@@ -1632,6 +1632,22 @@
     "Moneda_Nativa": "USD"
   },
   {
+    "Fecha_Pago": "2026-06-12",
+    "Anio": 2026,
+    "Mes": 6,
+    "Bono": "S12J6",
+    "Tipo_Instrumento": "LECAP",
+    "Ley": "Local",
+    "Moneda": "ARS",
+    "Moneda_Nativa": "ARS",
+    "Estado": "Pendiente",
+    "Residual_Inicio_Pct": 1.0,
+    "Tasa_Anual_Pct": 0.283243,
+    "Interes_USD": 4.2441,
+    "Amortizacion_USD": 100.0,
+    "Flujo_Total_USD": 104.2441
+  },
+  {
     "Fecha_Pago": "2026-06-28",
     "Anio": 2026,
     "Mes": 6,
@@ -1646,6 +1662,22 @@
     "Amortizacion_USD": 0.0,
     "Flujo_Total_USD": 0.5,
     "Moneda_Nativa": "USD"
+  },
+  {
+    "Fecha_Pago": "2026-06-29",
+    "Anio": 2026,
+    "Mes": 6,
+    "Bono": "TXMJ9",
+    "Tipo_Instrumento": "DUAL",
+    "Ley": "Local",
+    "Moneda": "ARS",
+    "Moneda_Nativa": "ARS",
+    "Estado": "Pendiente",
+    "Residual_Inicio_Pct": 1.0,
+    "Tasa_Anual_Pct": 0.0731,
+    "Interes_USD": 3.655,
+    "Amortizacion_USD": 0.0,
+    "Flujo_Total_USD": 3.655
   },
   {
     "Fecha_Pago": "2026-06-30",
@@ -1856,6 +1888,22 @@
     "Moneda_Nativa": "USD"
   },
   {
+    "Fecha_Pago": "2026-08-28",
+    "Anio": 2026,
+    "Mes": 8,
+    "Bono": "TMG28",
+    "Tipo_Instrumento": "TAMAR",
+    "Ley": "Local",
+    "Moneda": "ARS",
+    "Moneda_Nativa": "ARS",
+    "Estado": "Pendiente",
+    "Residual_Inicio_Pct": 1.0,
+    "Tasa_Anual_Pct": 0.4051,
+    "Interes_USD": 20.255,
+    "Amortizacion_USD": 0.0,
+    "Flujo_Total_USD": 20.255
+  },
+  {
     "Fecha_Pago": "2026-08-29",
     "Anio": 2026,
     "Mes": 8,
@@ -1918,6 +1966,22 @@
     "Amortizacion_USD": 0.0,
     "Flujo_Total_USD": 0.5,
     "Moneda_Nativa": "USD"
+  },
+  {
+    "Fecha_Pago": "2026-09-30",
+    "Anio": 2026,
+    "Mes": 9,
+    "Bono": "D30S6",
+    "Tipo_Instrumento": "Dólar Linked",
+    "Ley": "Local",
+    "Moneda": "ARS",
+    "Moneda_Nativa": "ARS",
+    "Estado": "Pendiente",
+    "Residual_Inicio_Pct": 1.0,
+    "Tasa_Anual_Pct": 0.0252,
+    "Interes_USD": 1.26,
+    "Amortizacion_USD": 100.0,
+    "Flujo_Total_USD": 101.26
   },
   {
     "Fecha_Pago": "2026-09-30",
@@ -2126,6 +2190,22 @@
     "Amortizacion_USD": 0.0,
     "Flujo_Total_USD": 0.5,
     "Moneda_Nativa": "USD"
+  },
+  {
+    "Fecha_Pago": "2026-12-29",
+    "Anio": 2026,
+    "Mes": 12,
+    "Bono": "TXMJ9",
+    "Tipo_Instrumento": "DUAL",
+    "Ley": "Local",
+    "Moneda": "ARS",
+    "Moneda_Nativa": "ARS",
+    "Estado": "Pendiente",
+    "Residual_Inicio_Pct": 1.0,
+    "Tasa_Anual_Pct": 0.0731,
+    "Interes_USD": 3.655,
+    "Amortizacion_USD": 0.0,
+    "Flujo_Total_USD": 3.655
   },
   {
     "Fecha_Pago": "2026-12-30",
@@ -2350,6 +2430,22 @@
     "Amortizacion_USD": 0.0,
     "Flujo_Total_USD": 0.5,
     "Moneda_Nativa": "USD"
+  },
+  {
+    "Fecha_Pago": "2027-02-28",
+    "Anio": 2027,
+    "Mes": 2,
+    "Bono": "TMG28",
+    "Tipo_Instrumento": "TAMAR",
+    "Ley": "Local",
+    "Moneda": "ARS",
+    "Moneda_Nativa": "ARS",
+    "Estado": "Pendiente",
+    "Residual_Inicio_Pct": 1.0,
+    "Tasa_Anual_Pct": 0.4051,
+    "Interes_USD": 20.255,
+    "Amortizacion_USD": 0.0,
+    "Flujo_Total_USD": 20.255
   },
   {
     "Fecha_Pago": "2027-03-28",
@@ -2592,6 +2688,22 @@
     "Moneda_Nativa": "USD"
   },
   {
+    "Fecha_Pago": "2027-06-29",
+    "Anio": 2027,
+    "Mes": 6,
+    "Bono": "TXMJ9",
+    "Tipo_Instrumento": "DUAL",
+    "Ley": "Local",
+    "Moneda": "ARS",
+    "Moneda_Nativa": "ARS",
+    "Estado": "Pendiente",
+    "Residual_Inicio_Pct": 1.0,
+    "Tasa_Anual_Pct": 0.0731,
+    "Interes_USD": 3.655,
+    "Amortizacion_USD": 0.0,
+    "Flujo_Total_USD": 3.655
+  },
+  {
     "Fecha_Pago": "2027-06-30",
     "Anio": 2027,
     "Mes": 6,
@@ -2766,6 +2878,22 @@
     "Amortizacion_USD": 0.0,
     "Flujo_Total_USD": 0.5,
     "Moneda_Nativa": "USD"
+  },
+  {
+    "Fecha_Pago": "2027-08-28",
+    "Anio": 2027,
+    "Mes": 8,
+    "Bono": "TMG28",
+    "Tipo_Instrumento": "TAMAR",
+    "Ley": "Local",
+    "Moneda": "ARS",
+    "Moneda_Nativa": "ARS",
+    "Estado": "Pendiente",
+    "Residual_Inicio_Pct": 1.0,
+    "Tasa_Anual_Pct": 0.4051,
+    "Interes_USD": 20.255,
+    "Amortizacion_USD": 0.0,
+    "Flujo_Total_USD": 20.255
   },
   {
     "Fecha_Pago": "2027-09-28",
@@ -2960,6 +3088,22 @@
     "Moneda_Nativa": "USD"
   },
   {
+    "Fecha_Pago": "2027-12-29",
+    "Anio": 2027,
+    "Mes": 12,
+    "Bono": "TXMJ9",
+    "Tipo_Instrumento": "DUAL",
+    "Ley": "Local",
+    "Moneda": "ARS",
+    "Moneda_Nativa": "ARS",
+    "Estado": "Pendiente",
+    "Residual_Inicio_Pct": 1.0,
+    "Tasa_Anual_Pct": 0.0731,
+    "Interes_USD": 3.655,
+    "Amortizacion_USD": 0.0,
+    "Flujo_Total_USD": 3.655
+  },
+  {
     "Fecha_Pago": "2027-12-31",
     "Anio": 2027,
     "Mes": 12,
@@ -3102,6 +3246,22 @@
     "Amortizacion_USD": 0.0,
     "Flujo_Total_USD": 0.5,
     "Moneda_Nativa": "USD"
+  },
+  {
+    "Fecha_Pago": "2028-02-28",
+    "Anio": 2028,
+    "Mes": 2,
+    "Bono": "TMG28",
+    "Tipo_Instrumento": "TAMAR",
+    "Ley": "Local",
+    "Moneda": "ARS",
+    "Moneda_Nativa": "ARS",
+    "Estado": "Pendiente",
+    "Residual_Inicio_Pct": 1.0,
+    "Tasa_Anual_Pct": 0.4051,
+    "Interes_USD": 20.255,
+    "Amortizacion_USD": 0.0,
+    "Flujo_Total_USD": 20.255
   },
   {
     "Fecha_Pago": "2028-03-28",
@@ -3248,6 +3408,22 @@
     "Moneda_Nativa": "USD"
   },
   {
+    "Fecha_Pago": "2028-06-29",
+    "Anio": 2028,
+    "Mes": 6,
+    "Bono": "TXMJ9",
+    "Tipo_Instrumento": "DUAL",
+    "Ley": "Local",
+    "Moneda": "ARS",
+    "Moneda_Nativa": "ARS",
+    "Estado": "Pendiente",
+    "Residual_Inicio_Pct": 1.0,
+    "Tasa_Anual_Pct": 0.0731,
+    "Interes_USD": 3.655,
+    "Amortizacion_USD": 0.0,
+    "Flujo_Total_USD": 3.655
+  },
+  {
     "Fecha_Pago": "2028-07-09",
     "Anio": 2028,
     "Mes": 7,
@@ -3376,6 +3552,22 @@
     "Moneda_Nativa": "USD"
   },
   {
+    "Fecha_Pago": "2028-08-31",
+    "Anio": 2028,
+    "Mes": 8,
+    "Bono": "TMG28",
+    "Tipo_Instrumento": "TAMAR",
+    "Ley": "Local",
+    "Moneda": "ARS",
+    "Moneda_Nativa": "ARS",
+    "Estado": "Pendiente",
+    "Residual_Inicio_Pct": 1.0,
+    "Tasa_Anual_Pct": 0.4051,
+    "Interes_USD": 20.255,
+    "Amortizacion_USD": 100.0,
+    "Flujo_Total_USD": 120.255
+  },
+  {
     "Fecha_Pago": "2028-09-28",
     "Anio": 2028,
     "Mes": 9,
@@ -3390,6 +3582,22 @@
     "Amortizacion_USD": 0.0,
     "Flujo_Total_USD": 0.5,
     "Moneda_Nativa": "USD"
+  },
+  {
+    "Fecha_Pago": "2028-09-29",
+    "Anio": 2028,
+    "Mes": 9,
+    "Bono": "TZXS8",
+    "Tipo_Instrumento": "BONCER",
+    "Ley": "Local",
+    "Moneda": "ARS",
+    "Moneda_Nativa": "ARS",
+    "Estado": "Pendiente",
+    "Residual_Inicio_Pct": 1.0,
+    "Tasa_Anual_Pct": 0.0,
+    "Interes_USD": 0.0,
+    "Amortizacion_USD": 100.0,
+    "Flujo_Total_USD": 100.0
   },
   {
     "Fecha_Pago": "2028-10-31",
@@ -3470,6 +3678,22 @@
     "Amortizacion_USD": 0.0,
     "Flujo_Total_USD": 3.25,
     "Moneda_Nativa": "USD"
+  },
+  {
+    "Fecha_Pago": "2028-12-29",
+    "Anio": 2028,
+    "Mes": 12,
+    "Bono": "TXMJ9",
+    "Tipo_Instrumento": "DUAL",
+    "Ley": "Local",
+    "Moneda": "ARS",
+    "Moneda_Nativa": "ARS",
+    "Estado": "Pendiente",
+    "Residual_Inicio_Pct": 1.0,
+    "Tasa_Anual_Pct": 0.0731,
+    "Interes_USD": 3.655,
+    "Amortizacion_USD": 0.0,
+    "Flujo_Total_USD": 3.655
   },
   {
     "Fecha_Pago": "2029-01-09",
@@ -3614,6 +3838,22 @@
     "Amortizacion_USD": 0.0,
     "Flujo_Total_USD": 3.25,
     "Moneda_Nativa": "USD"
+  },
+  {
+    "Fecha_Pago": "2029-06-29",
+    "Anio": 2029,
+    "Mes": 6,
+    "Bono": "TXMJ9",
+    "Tipo_Instrumento": "DUAL",
+    "Ley": "Local",
+    "Moneda": "ARS",
+    "Moneda_Nativa": "ARS",
+    "Estado": "Pendiente",
+    "Residual_Inicio_Pct": 1.0,
+    "Tasa_Anual_Pct": 0.0731,
+    "Interes_USD": 3.655,
+    "Amortizacion_USD": 100.0,
+    "Flujo_Total_USD": 103.655
   },
   {
     "Fecha_Pago": "2029-07-09",

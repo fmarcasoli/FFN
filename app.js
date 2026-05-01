@@ -1783,7 +1783,7 @@
     });
     on('modalAddInstCancel', 'click', () => document.getElementById('modalAddInst')?.classList.remove('open'));
     on('modalAddInstConfirm', 'click', () => { if (addCustomInstrumentGlobal()) document.getElementById('modalAddInst')?.classList.remove('open'); });
-    ['instTicker','instEmision','instVencimiento','instTem','instCupon','instAmortCuotas']
+    ['instTicker','instEmision','instVencimiento','instTem','instCupon','instSpread','instTasaBase','instAmortCuotas','instFreq','instMoneda','instFlujosManual']
       .forEach(id => document.getElementById(id)?.addEventListener('input', actualizarPreviewInst));
     document.getElementById('instTipo')?.addEventListener('change', actualizarCamposInst);
   }
@@ -1899,10 +1899,26 @@
   // ── Custom instruments ──
   function actualizarCamposInst() {
     const tipo = document.getElementById('instTipo')?.value;
-    const esBullet = tipo === 'LECAP' || tipo === 'BONCAP' || tipo === 'BONCER cero';
-    document.getElementById('instTemRow')?.style && (document.getElementById('instTemRow').style.display = esBullet && tipo !== 'BONCER cero' ? '' : 'none');
-    document.getElementById('instCuponRow')?.style && (document.getElementById('instCuponRow').style.display = tipo === 'BONCER' || tipo === 'Bonar' ? '' : 'none');
-    document.getElementById('instAmortRow')?.style && (document.getElementById('instAmortRow').style.display = tipo === 'BONCER' || tipo === 'Bonar' ? '' : 'none');
+    const esBulletTem   = tipo === 'LECAP' || tipo === 'BONCAP';
+    const esCupon       = tipo === 'BONCER' || tipo === 'Bonar' || tipo === 'ON';
+    const esTamar       = tipo === 'TAMAR' || tipo === 'DUAL';
+    const esDL          = tipo === 'Dólar Linked';
+    const tieneFreq     = esCupon || esTamar || esDL;
+    const tieneMoneda   = tipo === 'ON' || tipo === 'Bonar';
+
+    const show = (id, visible) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = visible ? '' : 'none';
+    };
+
+    show('instTemRow',      esBulletTem);
+    show('instCuponRow',    esCupon);
+    show('instSpreadRow',   esTamar);
+    show('instTasaBaseRow', esTamar);
+    show('instAmortRow',    esCupon || esTamar);
+    show('instFreqRow',     tieneFreq);
+    show('instMonedaRow',   tieneMoneda);
+
     actualizarPreviewInst();
   }
 
@@ -1915,18 +1931,42 @@
     const venc   = document.getElementById('instVencimiento')?.value;
     const tem    = parseFloat(document.getElementById('instTem')?.value);
     const cupon  = parseFloat(document.getElementById('instCupon')?.value);
-    const nCuotas= parseInt(document.getElementById('instAmortCuotas')?.value);
-    if (!ticker || !venc) { preview.style.color='var(--text-faint)'; preview.textContent='Completá ticker y vencimiento para ver el preview.'; return; }
+    const spread = parseFloat(document.getElementById('instSpread')?.value);
+    const tasaBase = parseFloat(document.getElementById('instTasaBase')?.value) || 33.61;
+    const nCuotas= parseInt(document.getElementById('instAmortCuotas')?.value) || 1;
+    const freq   = parseInt(document.getElementById('instFreq')?.value) || 6;
+    const moneda = document.getElementById('instMoneda')?.value || 'USD';
+    const flujosManual = document.getElementById('instFlujosManual')?.value || '';
+
+    if (!ticker || !venc) {
+      preview.style.color = 'var(--text-faint)';
+      preview.textContent = 'Completá ticker y vencimiento para ver el preview.';
+      return;
+    }
     try {
-      const cfg = { ticker, tipo, emision: emision||venc, vencimiento: venc, tem, cupon, amortCuotas: nCuotas };
+      const cfg = { ticker, tipo, emision: emision||venc, vencimiento: venc,
+                    tem, cupon, spread, tasaBase, amortCuotas: nCuotas, freq, moneda, flujosManual };
       const flujos = generarFlujosCustom(cfg).filter(f => f.Estado === 'Pendiente');
-      if (!flujos.length) { preview.style.color='var(--red)'; preview.textContent='⚠ Sin flujos futuros (vencimiento pasado?).'; return; }
-      const tInt = flujos.reduce((a,f) => a+f.Interes_USD, 0);
-      const tAm  = flujos.reduce((a,f) => a+f.Amortizacion_USD, 0);
+      if (!flujos.length) {
+        preview.style.color = 'var(--red)';
+        preview.textContent = '⚠ Sin flujos futuros (vencimiento pasado o datos insuficientes).';
+        return;
+      }
+      const tInt  = flujos.reduce((a,f) => a + f.Interes_USD, 0);
+      const tAmort= flujos.reduce((a,f) => a + f.Amortizacion_USD, 0);
       const mn = flujos[0].Moneda_Nativa; const sym = mn==='ARS'?'$':'U$';
-      preview.style.color='var(--green)';
-      preview.textContent = `✓ ${ticker} (${tipo}) · ${flujos.length} pago(s) · ${mn}\n  Int: ${sym}${tInt.toFixed(2)} · Amort: ${sym}${tAm.toFixed(2)} por c/100 VN\n  ${flujos[0].Fecha_Pago} → ${flujos[flujos.length-1].Fecha_Pago}`;
-    } catch(e) { preview.style.color='var(--red)'; preview.textContent='⚠ Error: ' + e.message; }
+      const freqLabel = {6:'Semestral',3:'Trimestral',1:'Mensual',12:'Anual'}[freq]||'';
+      preview.style.color = 'var(--green)';
+      preview.textContent = [
+        `✓ ${ticker} (${tipo}) · ${flujos.length} pago(s) · ${mn} · ${freqLabel}`,
+        `  Interés total: ${sym}${tInt.toFixed(2)} · Amort total: ${sym}${tAmort.toFixed(2)} (por c/100 VN)`,
+        `  Fechas: ${flujos[0].Fecha_Pago} → ${flujos[flujos.length-1].Fecha_Pago}`,
+        flujosManual ? '  ★ Usando flujos cargados manualmente.' : '',
+      ].filter(Boolean).join('\n');
+    } catch(e) {
+      preview.style.color = 'var(--red)';
+      preview.textContent = '⚠ Error: ' + e.message;
+    }
   }
 
   function generarFlujosCustom(cfg) {
@@ -1934,71 +1974,165 @@
     const flujos = [];
     const vto = new Date(cfg.vencimiento + 'T00:00:00');
     const emi = new Date((cfg.emision||cfg.vencimiento) + 'T00:00:00');
+    const est = d => d < hoy ? 'Pagado' : 'Pendiente';
+
+    // ── Flujos manuales CSV ──
+    if (cfg.flujosManual && cfg.flujosManual.trim()) {
+      const mn = cfg.moneda || 'ARS';
+      cfg.flujosManual.trim().split('\n').forEach(line => {
+        const parts = line.trim().split(',');
+        if (parts.length < 3) return;
+        const [fechaStr, intStr, amortStr] = parts;
+        const fecha = new Date(fechaStr.trim() + 'T00:00:00');
+        if (isNaN(fecha)) return;
+        const int = parseFloat(intStr) || 0;
+        const amort = parseFloat(amortStr) || 0;
+        flujos.push({
+          Fecha_Pago: fechaStr.trim(), Anio: fecha.getFullYear(), Mes: fecha.getMonth()+1,
+          Bono: cfg.ticker, Tipo_Instrumento: cfg.tipo, Ley: 'Local',
+          Moneda: mn, Moneda_Nativa: mn,
+          Estado: est(fecha), Residual_Inicio_Pct: 1, Tasa_Anual_Pct: 0,
+          Interes_USD: int, Amortizacion_USD: amort, Flujo_Total_USD: int + amort,
+        });
+      });
+      return flujos.sort((a,b) => a.Fecha_Pago.localeCompare(b.Fecha_Pago));
+    }
+
+    // ── Generar fechas periódicas ──
+    function genFechas(freqMeses) {
+      const res = [];
+      let cur = new Date(vto);
+      while (cur > emi) {
+        res.unshift(new Date(cur));
+        const m = cur.getMonth() - freqMeses;
+        const y = cur.getFullYear() + Math.floor(m / 12);
+        const mo = ((m % 12) + 12) % 12;
+        try { cur = new Date(y, mo, cur.getDate()); }
+        catch { cur = new Date(y, mo, 28); }
+      }
+      if (!res.length) res.push(vto);
+      return res;
+    }
+
+    function buildCouponRows(tipo_inst, moneda, cuponAnual, freqMeses, nCuotas) {
+      const fechas = genFechas(freqMeses);
+      const amortFechas = new Set(fechas.slice(-Math.max(1, nCuotas)).map(f => f.toISOString().slice(0,10)));
+      const amortPct = 100 / Math.max(1, nCuotas);
+      let residual = 100;
+      fechas.forEach(fecha => {
+        const iso = fecha.toISOString().slice(0,10);
+        const int = residual * (cuponAnual/100) / (12/freqMeses);
+        const amort = amortFechas.has(iso) ? amortPct : 0;
+        flujos.push({
+          Fecha_Pago: iso, Anio: fecha.getFullYear(), Mes: fecha.getMonth()+1,
+          Bono: cfg.ticker, Tipo_Instrumento: tipo_inst, Ley: 'Local',
+          Moneda: moneda, Moneda_Nativa: moneda,
+          Estado: est(fecha), Residual_Inicio_Pct: residual/100, Tasa_Anual_Pct: cuponAnual/100,
+          Interes_USD: round(int), Amortizacion_USD: round(amort), Flujo_Total_USD: round(int+amort),
+        });
+        residual -= amort;
+      });
+    }
+
+    const round = v => Math.round(v * 1e6) / 1e6;
+    const freq = parseInt(cfg.freq) || 6;
+    const nCuotas = Math.max(1, parseInt(cfg.amortCuotas) || 1);
 
     if (cfg.tipo === 'LECAP' || cfg.tipo === 'BONCAP') {
       const meses = Math.max(1, (vto.getFullYear()-emi.getFullYear())*12 + (vto.getMonth()-emi.getMonth()));
       const tem = (cfg.tem||0)/100;
-      const vf = 100 * Math.pow(1+tem, meses);
-      flujos.push({ Fecha_Pago: cfg.vencimiento, Anio: vto.getFullYear(), Mes: vto.getMonth()+1,
-        Bono: cfg.ticker, Tipo_Instrumento: cfg.tipo, Ley: 'Local', Moneda: 'ARS', Moneda_Nativa: 'ARS',
-        Estado: vto < hoy ? 'Pagado':'Pendiente', Residual_Inicio_Pct: 1, Tasa_Anual_Pct: Math.pow(1+tem,12)-1,
-        Interes_USD: vf-100, Amortizacion_USD: 100, Flujo_Total_USD: vf });
-    } else if (cfg.tipo === 'BONCER cero') {
-      flujos.push({ Fecha_Pago: cfg.vencimiento, Anio: vto.getFullYear(), Mes: vto.getMonth()+1,
-        Bono: cfg.ticker, Tipo_Instrumento: 'BONCER cero', Ley: 'Local', Moneda: 'ARS', Moneda_Nativa: 'ARS',
-        Estado: vto < hoy ? 'Pagado':'Pendiente', Residual_Inicio_Pct: 1, Tasa_Anual_Pct: 0,
-        Interes_USD: 0, Amortizacion_USD: 100, Flujo_Total_USD: 100 });
-    } else {
-      // BONCER con cupones o Bonar
-      const mn = cfg.tipo === 'Bonar' ? 'USD' : 'ARS';
-      const cuponAnual = (cfg.cupon||0)/100;
-      const nCuotas = Math.max(1, parseInt(cfg.amortCuotas)||1);
-      const fechas = [];
-      let cur = new Date(vto);
-      while (cur >= emi) { fechas.unshift(new Date(cur)); cur = new Date(cur); cur.setMonth(cur.getMonth()-6); }
-      if (!fechas.length) fechas.push(vto);
-      const amortFechas = new Set(fechas.slice(-nCuotas).map(f => f.toISOString().slice(0,10)));
-      const amortPct = 100/nCuotas;
-      let residual = 100;
-      fechas.forEach(fecha => {
-        const iso = fecha.toISOString().slice(0,10);
-        const int = residual * cuponAnual / 2;
-        const amort = amortFechas.has(iso) ? amortPct : 0;
-        flujos.push({ Fecha_Pago: iso, Anio: fecha.getFullYear(), Mes: fecha.getMonth()+1,
-          Bono: cfg.ticker, Tipo_Instrumento: cfg.tipo, Ley: 'Local', Moneda: mn, Moneda_Nativa: mn,
-          Estado: fecha < hoy ? 'Pagado':'Pendiente', Residual_Inicio_Pct: residual/100, Tasa_Anual_Pct: cuponAnual,
-          Interes_USD: int, Amortizacion_USD: amort, Flujo_Total_USD: int+amort });
-        residual -= amort;
+      const vf = 100 * (1+tem)**meses;
+      flujos.push({
+        Fecha_Pago: cfg.vencimiento, Anio: vto.getFullYear(), Mes: vto.getMonth()+1,
+        Bono: cfg.ticker, Tipo_Instrumento: cfg.tipo, Ley: 'Local',
+        Moneda: 'ARS', Moneda_Nativa: 'ARS', Estado: est(vto),
+        Residual_Inicio_Pct: 1, Tasa_Anual_Pct: round((1+tem)**12-1),
+        Interes_USD: round(vf-100), Amortizacion_USD: 100, Flujo_Total_USD: round(vf),
       });
+
+    } else if (cfg.tipo === 'BONCER cero') {
+      flujos.push({
+        Fecha_Pago: cfg.vencimiento, Anio: vto.getFullYear(), Mes: vto.getMonth()+1,
+        Bono: cfg.ticker, Tipo_Instrumento: 'BONCER cero', Ley: 'Local',
+        Moneda: 'ARS', Moneda_Nativa: 'ARS', Estado: est(vto),
+        Residual_Inicio_Pct: 1, Tasa_Anual_Pct: 0,
+        Interes_USD: 0, Amortizacion_USD: 100, Flujo_Total_USD: 100,
+      });
+
+    } else if (cfg.tipo === 'BONCER') {
+      buildCouponRows('BONCER', 'ARS', cfg.cupon||0, freq, nCuotas);
+
+    } else if (cfg.tipo === 'TAMAR') {
+      const tasaTotal = (parseFloat(cfg.tasaBase)||33.61) + (parseFloat(cfg.spread)||0);
+      buildCouponRows('TAMAR', 'ARS', tasaTotal, freq, nCuotas);
+
+    } else if (cfg.tipo === 'DUAL') {
+      // Piso = tasa fija del cupón; techo variable (no modelamos techo)
+      buildCouponRows('DUAL', 'ARS', cfg.cupon||0, freq, nCuotas);
+
+    } else if (cfg.tipo === 'Dólar Linked') {
+      buildCouponRows('Dólar Linked', 'ARS', cfg.cupon||0, freq, nCuotas);
+
+    } else if (cfg.tipo === 'Bonar' || cfg.tipo === 'ON') {
+      const mn = cfg.moneda || 'USD';
+      buildCouponRows(cfg.tipo, mn, cfg.cupon||0, freq, nCuotas);
     }
-    return flujos;
+
+    return flujos.sort((a,b) => a.Fecha_Pago.localeCompare(b.Fecha_Pago));
   }
 
   function addCustomInstrumentGlobal() {
     const s = AppState.getState();
-    const ticker = document.getElementById('instTicker')?.value.trim().toUpperCase();
-    const tipo   = document.getElementById('instTipo')?.value;
-    const emision= document.getElementById('instEmision')?.value;
-    const venc   = document.getElementById('instVencimiento')?.value;
-    const tem    = parseFloat(document.getElementById('instTem')?.value)||0;
-    const cupon  = parseFloat(document.getElementById('instCupon')?.value)||0;
-    const nCuotas= parseInt(document.getElementById('instAmortCuotas')?.value)||1;
+    const ticker  = document.getElementById('instTicker')?.value.trim().toUpperCase();
+    const tipo    = document.getElementById('instTipo')?.value;
+    const emision = document.getElementById('instEmision')?.value;
+    const venc    = document.getElementById('instVencimiento')?.value;
+    const tem     = parseFloat(document.getElementById('instTem')?.value) || 0;
+    const cupon   = parseFloat(document.getElementById('instCupon')?.value) || 0;
+    const spread  = parseFloat(document.getElementById('instSpread')?.value) || 0;
+    const tasaBase= parseFloat(document.getElementById('instTasaBase')?.value) || 33.61;
+    const nCuotas = parseInt(document.getElementById('instAmortCuotas')?.value) || 1;
+    const freq    = parseInt(document.getElementById('instFreq')?.value) || 6;
+    const moneda  = document.getElementById('instMoneda')?.value || 'USD';
+    const precio  = parseFloat(document.getElementById('instPrecio')?.value);
+    const precioMoneda = document.getElementById('instPrecioMoneda')?.value || 'ARS';
+    const flujosManual = document.getElementById('instFlujosManual')?.value || '';
+
     if (!ticker) { alert('Ingresá el ticker.'); return false; }
-    if (!venc) { alert('Ingresá la fecha de vencimiento.'); return false; }
+    if (!venc)   { alert('Ingresá la fecha de vencimiento.'); return false; }
     if (s.BOND_META[ticker]) { alert(`"${ticker}" ya existe.`); return false; }
-    const cfg = { ticker, tipo, emision: emision||venc, vencimiento: venc, tem, cupon, amortCuotas: nCuotas };
+
+    const cfg = { ticker, tipo, emision: emision||venc, vencimiento: venc,
+                  tem, cupon, spread, tasaBase, amortCuotas: nCuotas, freq, moneda, flujosManual };
     const flujos = generarFlujosCustom(cfg);
-    if (!flujos.length) { alert('Sin flujos generados.'); return false; }
+    if (!flujos.length) { alert('Sin flujos generados. Revisá los datos.'); return false; }
+
     flujos.forEach(f => s.DATA.push(f));
-    const mn = (tipo==='BONCER'||tipo==='BONCER cero'||tipo==='LECAP'||tipo==='BONCAP') ? 'ARS' : 'USD';
+
+    // Determinar moneda nativa
+    const arsTypes = ['LECAP','BONCAP','BONCER cero','BONCER','TAMAR','DUAL','Dólar Linked'];
+    const mn = arsTypes.includes(tipo) ? 'ARS' : (tipo === 'ON' ? moneda : 'USD');
+
     const [dy, dm, dd] = [venc.slice(8,10), venc.slice(5,7), venc.slice(0,4)];
-    s.BOND_META[ticker] = { venc: `${dy}/${dm}/${dd}`, emisor:'Custom', moneda_nativa: mn, tipo, tickers_usd: mn==='USD'?[ticker+'D',ticker]:[], tickers_ars:[ticker], es_custom:true };
+    s.BOND_META[ticker] = {
+      venc: `${dy}/${dm}/${dd}`, emisor: 'Custom',
+      moneda_nativa: mn, tipo,
+      tickers_usd: mn === 'USD' ? [ticker+'D', ticker] : [],
+      tickers_ars: [ticker], es_custom: true,
+    };
+
+    // Si el usuario cargó precio inicial, lo guardamos en PRICES
+    if (Number.isFinite(precio) && precio > 0) {
+      s.PRICES[ticker] = { price: precio, source: 'manual', ts: Date.now(), market: precioMoneda };
+    }
+
     Storage.save();
-    const customs = JSON.parse(localStorage.getItem('bonos_custom')||'[]');
+    const customs = JSON.parse(localStorage.getItem('bonos_custom') || '[]');
     customs.push({ cfg, flujos, meta: s.BOND_META[ticker] });
     localStorage.setItem('bonos_custom', JSON.stringify(customs));
-    if (FILTER_OPTIONS.bono && !FILTER_OPTIONS.bono.find(o => o.value===ticker)) {
-      FILTER_OPTIONS.bono.push({ value: ticker, label: ticker+' ★' });
+
+    if (FILTER_OPTIONS.bono && !FILTER_OPTIONS.bono.find(o => o.value === ticker)) {
+      FILTER_OPTIONS.bono.push({ value: ticker, label: ticker + ' ★' });
       buildMultiselectDropdown('bono');
     }
     UI.renderPortfolioInputs(); UI.render();

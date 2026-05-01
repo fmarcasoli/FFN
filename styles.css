@@ -275,12 +275,21 @@
   .price-input::-webkit-outer-spin-button, .price-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
   .bond-input-open-hint {
-    position: absolute; bottom: 6px; right: 10px;
+    display: block; margin-top: 8px;
+    background: transparent; border: 1px dashed var(--border-strong);
+    color: var(--text-dim); border-radius: 4px; padding: 4px 0;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 9px; color: var(--text-faint);
-    pointer-events: none; opacity: 0.6;
+    font-size: 10px; text-align: center; letter-spacing: 0.08em;
+    cursor: pointer; width: 100%; transition: all 0.15s;
+    pointer-events: none; /* el click lo captura el padre */
   }
-  .bond-input:hover .bond-input-open-hint { color: var(--accent); opacity: 1; }
+  .bond-input:hover .bond-input-open-hint {
+    color: var(--accent); border-color: var(--accent-dim);
+    background: rgba(245, 185, 66, 0.06);
+  }
+  .bond-input.has-value .bond-input-open-hint {
+    border-color: var(--accent-dim); color: var(--accent-dim);
+  }
 
   .portfolio-actions { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
 

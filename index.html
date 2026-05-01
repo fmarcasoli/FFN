@@ -430,51 +430,124 @@
   </div>
 </div>
 
-<!-- Modal: agregar instrumento custom (LECAPs/CER nuevas) -->
+<!-- Modal: agregar instrumento custom -->
 <div class="modal-backdrop" id="modalAddInst">
-  <div class="modal" style="max-width: 600px;">
+  <div class="modal" style="max-width: 680px; max-height: 90vh; overflow-y: auto;">
     <h3>Agregar instrumento</h3>
-    <p>Cargá una serie nueva (LECAP, BONCAP, BONCER, etc.) que no esté en la lista. Los datos los sacás del comunicado oficial de licitación en <strong>argentina.gob.ar/economia/finanzas/licitaciones</strong> o del informe del bróker.</p>
+    <p>Cargá una serie nueva que no esté en la lista. Los datos los sacás del comunicado oficial de licitación en <strong>argentina.gob.ar/economia/finanzas/licitaciones</strong> o del informe del bróker.</p>
 
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+    <!-- Fila 1: ticker + tipo -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
       <div>
         <label class="cost-item-label">Ticker</label>
-        <input type="text" class="modal-input" id="instTicker" placeholder="Ej: S31E7" maxlength="20" style="margin: 4px 0 0;">
+        <input type="text" class="modal-input" id="instTicker" placeholder="Ej: S12J6" maxlength="20" style="margin:4px 0 0">
       </div>
       <div>
-        <label class="cost-item-label">Tipo</label>
-        <select id="instTipo" class="modal-input" style="margin: 4px 0 0;">
-          <option value="LECAP">LECAP (cero cupón ARS)</option>
-          <option value="BONCAP">BONCAP (cero cupón ARS, vto largo)</option>
-          <option value="BONCER cero">BONCER cero cupón (CER)</option>
-          <option value="BONCER">BONCER con cupones (CER)</option>
-          <option value="Bonar">Bonar / Global (USD)</option>
+        <label class="cost-item-label">Tipo de instrumento</label>
+        <select id="instTipo" class="modal-input" style="margin:4px 0 0">
+          <optgroup label="── Tasa fija (ARS)">
+            <option value="LECAP">LECAP (cero cupón ARS, corto plazo)</option>
+            <option value="BONCAP">BONCAP (cero cupón ARS, largo plazo)</option>
+          </optgroup>
+          <optgroup label="── Ajustables (ARS)">
+            <option value="BONCER cero">BONCER cero cupón (CER, bullet)</option>
+            <option value="BONCER">BONCER con cupones (CER, semestrales)</option>
+            <option value="TAMAR">TAMAR (tasa variable TAMAR + spread)</option>
+            <option value="DUAL">DUAL (mejor entre tasa fija y TAMAR)</option>
+            <option value="Dólar Linked">Dólar Linked (en ARS, ajusta por TCO)</option>
+          </optgroup>
+          <optgroup label="── USD">
+            <option value="Bonar">Bonar / Global (USD, cupones semestrales)</option>
+            <option value="ON">ON / Obligación Negociable (USD o ARS)</option>
+          </optgroup>
         </select>
-      </div>
-      <div>
-        <label class="cost-item-label">Fecha emisión</label>
-        <input type="date" class="modal-input" id="instEmision" style="margin: 4px 0 0;">
-      </div>
-      <div>
-        <label class="cost-item-label">Fecha vencimiento</label>
-        <input type="date" class="modal-input" id="instVencimiento" style="margin: 4px 0 0;">
-      </div>
-      <div id="instTemRow">
-        <label class="cost-item-label">TEM (cero cupón) %</label>
-        <input type="number" class="modal-input" id="instTem" step="0.01" min="0" placeholder="2.40" style="margin: 4px 0 0;" title="Tasa Efectiva Mensual de capitalización. Ejemplo: 2.40 para 2,40%.">
-      </div>
-      <div id="instCuponRow" style="display:none;">
-        <label class="cost-item-label">Cupón anual %</label>
-        <input type="number" class="modal-input" id="instCupon" step="0.01" min="0" placeholder="2.25" style="margin: 4px 0 0;">
-      </div>
-      <div id="instAmortRow" style="display:none;">
-        <label class="cost-item-label">N° de cuotas amort.</label>
-        <input type="number" class="modal-input" id="instAmortCuotas" min="1" max="50" placeholder="6" style="margin: 4px 0 0;" title="Cantidad de cuotas iguales en las que amortiza al final. Ej: TX28 = 6 cuotas semestrales iguales.">
       </div>
     </div>
 
-    <div id="instPreview" style="background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin-bottom: 16px; min-height: 60px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim);">
-      Completá los campos y se mostrará el cronograma proyectado acá.
+    <!-- Fila 2: fechas -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+      <div>
+        <label class="cost-item-label">Fecha emisión</label>
+        <input type="date" class="modal-input" id="instEmision" style="margin:4px 0 0">
+      </div>
+      <div>
+        <label class="cost-item-label">Fecha vencimiento</label>
+        <input type="date" class="modal-input" id="instVencimiento" style="margin:4px 0 0">
+      </div>
+    </div>
+
+    <!-- Campos condicionales según tipo -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+      <div id="instTemRow">
+        <label class="cost-item-label">TEM % <span style="font-weight:400;text-transform:none;letter-spacing:0">(Tasa Efectiva Mensual)</span></label>
+        <input type="number" class="modal-input" id="instTem" step="0.01" min="0" placeholder="2.10" style="margin:4px 0 0" title="Ej: 2.10 para 2,10% mensual">
+      </div>
+      <div id="instCuponRow" style="display:none">
+        <label class="cost-item-label">Cupón anual % <span style="font-weight:400;text-transform:none;letter-spacing:0">(sobre residual)</span></label>
+        <input type="number" class="modal-input" id="instCupon" step="0.01" min="0" placeholder="2.25" style="margin:4px 0 0">
+      </div>
+      <div id="instSpreadRow" style="display:none">
+        <label class="cost-item-label">Spread / margen % <span style="font-weight:400;text-transform:none;letter-spacing:0">(sobre tasa base)</span></label>
+        <input type="number" class="modal-input" id="instSpread" step="0.01" min="0" placeholder="6.90" style="margin:4px 0 0">
+      </div>
+      <div id="instTasaBaseRow" style="display:none">
+        <label class="cost-item-label">Tasa base actual % <span style="font-weight:400;text-transform:none;letter-spacing:0">(TAMAR/BADLAR hoy)</span></label>
+        <input type="number" class="modal-input" id="instTasaBase" step="0.01" min="0" placeholder="33.61" style="margin:4px 0 0">
+      </div>
+      <div id="instAmortRow" style="display:none">
+        <label class="cost-item-label">Cuotas amortización <span style="font-weight:400;text-transform:none;letter-spacing:0">(últ. N cuotas iguales)</span></label>
+        <input type="number" class="modal-input" id="instAmortCuotas" min="1" max="50" placeholder="1" style="margin:4px 0 0">
+      </div>
+      <div id="instFreqRow" style="display:none">
+        <label class="cost-item-label">Frecuencia de pago</label>
+        <select id="instFreq" class="modal-input" style="margin:4px 0 0">
+          <option value="6">Semestral</option>
+          <option value="3">Trimestral</option>
+          <option value="1">Mensual</option>
+          <option value="12">Anual</option>
+        </select>
+      </div>
+      <div id="instMonedaRow" style="display:none">
+        <label class="cost-item-label">Moneda</label>
+        <select id="instMoneda" class="modal-input" style="margin:4px 0 0">
+          <option value="USD">USD</option>
+          <option value="ARS">ARS</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Precio actual (opcional, para mostrar en la card) -->
+    <div style="margin-bottom: 12px; border: 1px dashed var(--border); border-radius: 6px; padding: 10px 12px;">
+      <label class="cost-item-label" style="margin-bottom:6px;display:block">
+        Precio actual <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-faint)">(opcional — se puede actualizar después con la API o manualmente)</span>
+      </label>
+      <div style="display:flex; gap:8px; align-items:center">
+        <input type="number" class="modal-input" id="instPrecio" step="0.01" min="0" placeholder="precio c/100 VN" style="flex:1">
+        <select id="instPrecioMoneda" class="modal-input" style="width:80px">
+          <option value="ARS">ARS</option>
+          <option value="USD">USD</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Carga manual de flujos (avanzado) -->
+    <details style="margin-bottom: 12px; border: 1px dashed var(--border); border-radius: 6px; padding: 10px 12px;">
+      <summary style="cursor:pointer; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-dim); user-select:none; list-style:none">
+        ▸ Cargar flujos manualmente (avanzado)
+      </summary>
+      <div style="margin-top:12px">
+        <p style="font-size:12px;color:var(--text-dim);margin-bottom:8px;line-height:1.6">
+          Si el instrumento tiene una estructura compleja (amortización irregular, cupones no estándar) podés cargar los flujos vos mismo.
+          Formato CSV sin encabezado: <code style="background:var(--bg);padding:2px 6px;border-radius:3px">fecha,interes,amortizacion</code> — una fila por pago, fecha en <code>YYYY-MM-DD</code>, valores por cada 100 VN.
+        </p>
+        <textarea id="instFlujosManual" class="modal-input" rows="5" placeholder="2026-06-30,2.50,0&#10;2026-12-30,2.25,0&#10;2027-06-30,2.00,100" style="font-family:'JetBrains Mono',monospace;font-size:11px;resize:vertical;min-height:100px"></textarea>
+        <div style="font-size:11px;color:var(--text-faint);margin-top:4px">Si cargás flujos manuales, se ignoran los campos de TEM/cupón/spread de arriba.</div>
+      </div>
+    </details>
+
+    <!-- Preview -->
+    <div id="instPreview" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:16px;min-height:60px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);white-space:pre-wrap">
+      Completá ticker y vencimiento para ver el preview del cronograma.
     </div>
 
     <div class="modal-actions">
@@ -531,7 +604,13 @@ window.BOND_META_INIT = {
     'TZXM9':                { venc: '31/03/2029', emisor: 'Tesoro',  moneda_nativa: 'ARS', tipo: 'BONCER cero',  tickers_usd: [],                 tickers_ars: ['TZXM9']        },
     'TX26':                 { venc: '09/11/2026', emisor: 'Tesoro',  moneda_nativa: 'ARS', tipo: 'BONCER',       tickers_usd: [],                 tickers_ars: ['TX26']         },
     'TX28':                 { venc: '09/11/2028', emisor: 'Tesoro',  moneda_nativa: 'ARS', tipo: 'BONCER',       tickers_usd: [],                 tickers_ars: ['TX28']         },
-    'TX31':                 { venc: '09/11/2031', emisor: 'Tesoro',  moneda_nativa: 'ARS', tipo: 'BONCER',       tickers_usd: [],                 tickers_ars: ['TX31']         }
+    'TX31':                 { venc: '09/11/2031', emisor: 'Tesoro',  moneda_nativa: 'ARS', tipo: 'BONCER',       tickers_usd: [],                 tickers_ars: ['TX31']         },
+    /* ── Licitación 28/04/2026 ── */
+    'S12J6':                { venc: '12/06/2026', emisor: 'Tesoro',  moneda_nativa: 'ARS', tipo: 'LECAP',        tickers_usd: [],                 tickers_ars: ['S12J6']        },
+    'TZXS8':                { venc: '29/09/2028', emisor: 'Tesoro',  moneda_nativa: 'ARS', tipo: 'BONCER cero',  tickers_usd: [],                 tickers_ars: ['TZXS8']        },
+    'TMG28':                { venc: '31/08/2028', emisor: 'Tesoro',  moneda_nativa: 'ARS', tipo: 'TAMAR',        tickers_usd: [],                 tickers_ars: ['TMG28'],        nota: 'TAMAR+6.90%. Flujo proxy; tasa variable actualizar si cambia TAMAR.' },
+    'TXMJ9':                { venc: '29/06/2029', emisor: 'Tesoro',  moneda_nativa: 'ARS', tipo: 'DUAL',         tickers_usd: [],                 tickers_ars: ['TXMJ9'],        nota: 'DUAL: mejor entre tasa fija y TAMAR. Flujo modelado con tasa fija 7.31% como piso.' },
+    'D30S6':                { venc: '30/09/2026', emisor: 'Tesoro',  moneda_nativa: 'ARS', tipo: 'Dólar Linked', tickers_usd: [],                 tickers_ars: ['D30S6'],        nota: 'Dólar Linked: ajusta por TCO oficial. Flujo nominal 100 ARS, ajuste en runtime.' }
   };
 </script>
 
