@@ -53,6 +53,21 @@
     <span id="modeBannerText">Mostrando flujos escalados a tu cartera</span>
   </div>
 
+  <!-- ── Navegación principal ── -->
+  <nav class="app-nav" id="appNav">
+    <button class="app-nav-btn active" data-page="pageCartera">
+      <span class="nav-icon">📊</span>Cartera &amp; Flujos
+    </button>
+    <button class="app-nav-btn" data-page="pageCurvas">
+      <span class="nav-icon">📈</span>Curvas de Rendimiento
+    </button>
+  </nav>
+
+  <!-- ════════════════════════════
+       PÁGINA 1: CARTERA & FLUJOS
+  ═════════════════════════════ -->
+  <div class="page-section active" id="pageCartera">
+
   <div class="portfolio-tabs">
     <span class="portfolio-tabs-label">Carteras:</span>
     <div class="pf-tabs-scroll" id="pfTabs"></div>
@@ -454,98 +469,80 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════
-       CURVAS DE RENDIMIENTO
-  ════════════════════════════════════════════════════════════════ -->
-  <details class="scenarios-panel" id="curvasPanel" style="margin-bottom:24px">
-    <summary>
-      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-        <div>
-          <div class="chart-title">Curvas de Rendimiento</div>
-          <div class="chart-sub">TIR vs. plazo · actualización automática con precios de mercado</div>
-        </div>
-        <span id="curvaHistBadge" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-faint);letter-spacing:0.08em"></span>
+  </div><!-- /pageCartera -->
+
+  <!-- ════════════════════════════
+       PÁGINA 2: CURVAS
+  ═════════════════════════════ -->
+  <div class="page-section" id="pageCurvas">
+
+  <!-- Controles de curvas -->
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px;background:var(--bg-panel);border:1px solid var(--border);border-radius:10px;padding:14px 18px">
+    <div style="flex:1;min-width:180px">
+      <label class="cost-item-label" style="display:block;margin-bottom:4px">Comparar con fecha histórica</label>
+      <select id="curvaHistList" class="modal-input" style="width:100%;font-size:12px">
+        <option value="">— Elegir fecha comparativa —</option>
+      </select>
+    </div>
+    <span id="curvaCompLabel" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);min-width:80px"></span>
+    <span id="curvaHistBadge" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-faint)"></span>
+    <div style="display:flex;gap:8px;padding-top:14px">
+      <button class="btn small primary" id="btnCurvaSnapshot">📸 Snapshot manual</button>
+      <button class="btn small" id="btnCurvaClearHist">🗑 Borrar historial</button>
+    </div>
+  </div>
+
+  <!-- Stats rápidas -->
+  <div id="curvaStats" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);margin-bottom:20px;line-height:1.8;background:var(--bg-panel);border:1px solid var(--border);border-radius:10px;padding:12px 18px"></div>
+
+  <!-- Curva USD -->
+  <div class="curva-chart-wrap">
+    <div class="curva-header">
+      <div>
+        <div class="curva-title" style="color:#5aa4e8">Soberanos USD</div>
+        <div class="curva-meta" id="curvaMetaUSD">Bonares · Globales · BOPREAL &nbsp;|&nbsp; TIR USD vs. Plazo</div>
       </div>
-    </summary>
-    <div class="scenarios-body">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-faint)" id="curvaRegUSD"></div>
+    </div>
+    <div class="curva-canvas-wrap"><canvas id="chartCurvaUSD"></canvas></div>
+  </div>
 
-      <!-- Controles -->
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">
-        <div style="flex:1;min-width:200px">
-          <label class="cost-item-label" style="margin-bottom:4px;display:block">Comparar con fecha histórica</label>
-          <select id="curvaHistList" class="modal-input" style="width:100%;font-size:12px">
-            <option value="">— Elegir fecha comparativa —</option>
-          </select>
-        </div>
-        <span id="curvaCompLabel" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);min-width:80px"></span>
-        <div style="display:flex;gap:8px;align-items:flex-end;padding-top:16px">
-          <button class="btn small primary" id="btnCurvaSnapshot" title="Guardar snapshot manual con los precios actuales">📸 Snapshot</button>
-          <button class="btn small danger" id="btnCurvaClearHist" title="Borrar todo el historial">🗑 Borrar historial</button>
-        </div>
+  <!-- Curva Tasa Fija -->
+  <div class="curva-chart-wrap">
+    <div class="curva-header">
+      <div>
+        <div class="curva-title" style="color:#f5b942">Tasa Fija ARS — LECAPs &amp; BONCAPs</div>
+        <div class="curva-meta" id="curvaMetaFija">TIR anual implícita en ARS vs. Plazo</div>
       </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-faint)" id="curvaRegFija"></div>
+    </div>
+    <div class="curva-canvas-wrap"><canvas id="chartCurvaFija"></canvas></div>
+  </div>
 
-      <!-- Stats rápidas -->
-      <div id="curvaStats" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);margin-bottom:20px;line-height:1.8"></div>
-
-      <!-- 3 Gráficos -->
-      <div style="display:grid;grid-template-columns:1fr;gap:20px">
-
-        <!-- Curva USD -->
-        <div class="chart-panel">
-          <div class="chart-header">
-            <div>
-              <div class="chart-title" style="color:#5aa4e8">Soberanos USD</div>
-              <div class="chart-sub">Bonares, Globales y BOPREAL · TIR en USD vs. plazo al vencimiento</div>
-            </div>
-            <div class="legend">
-              <div class="legend-item"><span class="legend-dot" style="background:#5aa4e8"></span>Hoy</div>
-              <div class="legend-item"><span class="legend-dot" style="background:rgba(255,255,255,0.25);border:1px dashed rgba(255,255,255,0.4)"></span>Comparativa</div>
-            </div>
-          </div>
-          <div class="chart-container tall"><canvas id="chartCurvaUSD"></canvas></div>
-        </div>
-
-        <!-- Curva Tasa Fija -->
-        <div class="chart-panel">
-          <div class="chart-header">
-            <div>
-              <div class="chart-title" style="color:#f5b942">Tasa Fija ARS — LECAPs y BONCAPs</div>
-              <div class="chart-sub">TIR implícita según precio de mercado vs. plazo al vencimiento</div>
-            </div>
-          </div>
-          <div class="chart-container tall"><canvas id="chartCurvaFija"></canvas></div>
-        </div>
-
-        <!-- Curva CER -->
-        <div class="chart-panel">
-          <div class="chart-header">
-            <div>
-              <div class="chart-title" style="color:#b88ee8">CER — Ajustados por Inflación</div>
-              <div class="chart-sub">TIR real (sobre VN ajustado) vs. plazo al vencimiento</div>
-            </div>
-          </div>
-          <div class="chart-container tall"><canvas id="chartCurvaCER"></canvas></div>
-        </div>
-
+  <!-- Curva CER -->
+  <div class="curva-chart-wrap">
+    <div class="curva-header">
+      <div>
+        <div class="curva-title" style="color:#b88ee8">CER — Ajustados por Inflación</div>
+        <div class="curva-meta" id="curvaMetaCER">TIR real aprox. vs. Plazo</div>
       </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-faint)" id="curvaRegCER"></div>
+    </div>
+    <div class="curva-canvas-wrap"><canvas id="chartCurvaCER"></canvas></div>
+  </div>
 
-      <!-- Nota metodológica -->
-      <details style="margin-top:16px;border:1px dashed var(--border);border-radius:6px;padding:10px 14px">
-        <summary style="cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);user-select:none;list-style:none">
-          ▸ Metodología y supuestos
-        </summary>
-        <div style="padding-top:10px;font-size:12px;color:var(--text-dim);line-height:1.8">
-          <strong style="color:var(--text)">Eje X — Plazo al vencimiento:</strong> días desde hoy hasta el último flujo, expresado en años. No es duration modificada.<br>
-          <strong style="color:var(--text)">Eje Y — TIR:</strong> calculada con Newton-Raphson (IRR) sobre el flujo real de cada bono escalado a VN=100. Se descuenta contra el precio de mercado actual.<br>
-          <strong style="color:var(--text)">Curva USD:</strong> precios USD-MEP (sufijo D). TIR en dólares.<br>
-          <strong style="color:var(--text)">Curva LECAP/BONCAP:</strong> precios ARS. TIR en pesos nominal. El valor final está capitalizado por TEM de licitación desde emisión.<br>
-          <strong style="color:var(--text)">Curva CER:</strong> precio ARS; flujos nominales base 100 (sin inflación). TIR real aproximada sobre precio de mercado.<br>
-          <strong style="color:var(--text)">Historial:</strong> se guarda un snapshot automático cada vez que se actualizan los precios. Máximo 90 snapshots (~4 meses). Se almacena en localStorage del browser.
-        </div>
-      </details>
-
+  <!-- Nota metodológica -->
+  <details style="border:1px dashed var(--border);border-radius:6px;padding:10px 14px;margin-bottom:24px">
+    <summary style="cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);user-select:none;list-style:none">▸ Metodología y supuestos</summary>
+    <div style="padding-top:10px;font-size:12px;color:var(--text-dim);line-height:1.8">
+      <strong style="color:var(--text)">Eje X:</strong> plazo al vencimiento en años (días hasta último flujo / 365.25).<br>
+      <strong style="color:var(--text)">Eje Y:</strong> TIR anual calculada con Newton-Raphson (IRR) sobre flujos reales base VN=100, descontada contra el precio de mercado actual.<br>
+      <strong style="color:var(--text)">Regresión:</strong> cuadrática (y = ax² + bx + c) por mínimos cuadrados ordinarios sobre los puntos con precio disponible.<br>
+      <strong style="color:var(--text)">Historial:</strong> snapshot automático en cada actualización de precios. Máx. 90 días. Almacenado en localStorage.
     </div>
   </details>
+
+  </div><!-- /pageCurvas -->
 
   <footer>
     <div><span class="footer-tag">Fuente flujos</span> · Decreto 701/2020 · Comunicaciones BCRA B12695 y B12999 · Resoluciones Secretaría de Finanzas (AN29, AO27, AO28)</div>

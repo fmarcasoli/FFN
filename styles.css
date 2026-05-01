@@ -739,3 +739,45 @@
     font-size: 11px; color: var(--text-dim);
   }
   .version-item .version-actions { display: flex; gap: 6px; }
+
+  /* ── Navegación de páginas ── */
+  .app-nav {
+    display: flex; gap: 2px;
+    background: var(--bg-panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 4px; margin-bottom: 20px;
+  }
+  .app-nav-btn {
+    flex: 1; background: transparent; border: none;
+    color: var(--text-dim); padding: 10px 20px; border-radius: 7px;
+    cursor: pointer; font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
+    font-weight: 500; transition: all 0.15s; text-align: center;
+  }
+  .app-nav-btn:hover { color: var(--text); background: var(--bg-hover); }
+  .app-nav-btn.active {
+    background: var(--bg); color: var(--text);
+    font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  }
+  .app-nav-btn .nav-icon { margin-right: 6px; }
+  .page-section { display: none; }
+  .page-section.active { display: block; }
+
+  /* ── Curva chart refinada ── */
+  .curva-chart-wrap {
+    background: var(--bg-panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px; margin-bottom: 20px;
+  }
+  .curva-header {
+    display: flex; justify-content: space-between;
+    align-items: flex-start; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;
+  }
+  .curva-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    font-weight: 600;
+  }
+  .curva-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--text-dim);
+  }
+  .curva-canvas-wrap { position: relative; height: 380px; }

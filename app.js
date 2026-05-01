@@ -2503,7 +2503,343 @@
   // ─────────────────────────────────────────────────────────────────────────────
   const YieldCurves = (() => {
     const HIST_KEY = 'bonos_curvas_hist_v1';
-    const MAX_SNAPSHOTS = 90; // ~4 meses de días hábiles
+    const MAX_SNAPSHOTS = 90;
+
+    const CURVAS = {
+      usd: {
+        label: 'Soberanos USD', color: '#5aa4e8',
+        bonos: ['AO27','AO28','AL29 / GD29','AN29','AL30 / GD30','BOPREAL Serie 3','BOPREAL Serie 1','BPD7 (BOPREAL S.1-D)','BOPREAL Serie 4','AL35 / GD35','AE38 / GD38','AL41 / GD41','GD46'],
+        priceCurrency: 'USD',
+        // Etiquetas cortas para el gráfico
+        labelMap: { 'AO27':'AO27','AO28':'AO28','AL29 / GD29':'AL29','AN29':'AN29','AL30 / GD30':'AL30','BOPREAL Serie 3':'BPS3','BOPREAL Serie 1':'BPS1','BPD7 (BOPREAL S.1-D)':'BPD7','BOPREAL Serie 4':'BPS4','AL35 / GD35':'AL35','AE38 / GD38':'AE38','AL41 / GD41':'AL41','GD46':'GD46' },
+      },
+      fija: {
+        label: 'Tasa fija ARS', color: '#f5b942',
+        bonos: ['S30A6','S12J6','S29Y6','S30J6','T30J6','S31L6','S29G6','S30S6','T30D6','T15E7','T30E7'],
+        priceCurrency: 'ARS',
+        labelMap: {},
+      },
+      cer: {
+        label: 'CER', color: '#b88ee8',
+        bonos: ['TX26','TZXM7','TZXJ7','TZXD7','TZXM8','TZXS8','TX28','TZXM9','TX31'],
+        priceCurrency: 'ARS',
+        labelMap: {},
+      },
+    };
+
+    // ── Regresión cuadrática OLS ──
+    // Retorna [a, b, c] de y = ax² + bx + c
+    function quadReg(points) {
+      const n = points.length;
+      if (n < 3) return null;
+      let sx=0, sx2=0, sx3=0, sx4=0, sy=0, sxy=0, sx2y=0;
+      points.forEach(({x, y}) => {
+        sx  += x; sx2 += x*x; sx3 += x*x*x; sx4 += x*x*x*x;
+        sy  += y; sxy += x*y; sx2y += x*x*y;
+      });
+      // Matriz 3×3 normal equations: [[n,sx,sx2],[sx,sx2,sx3],[sx2,sx3,sx4]] * [c,b,a] = [sy,sxy,sx2y]
+      const M = [[n,sx,sx2],[sx,sx2,sx3],[sx2,sx3,sx4]];
+      const V = [sy, sxy, sx2y];
+      // Gauss elimination
+      for (let i = 0; i < 3; i++) {
+        let maxR = i;
+        for (let r = i+1; r < 3; r++) if (Math.abs(M[r][i]) > Math.abs(M[maxR][i])) maxR = r;
+        [M[i], M[maxR]] = [M[maxR], M[i]]; [V[i], V[maxR]] = [V[maxR], V[i]];
+        if (Math.abs(M[i][i]) < 1e-12) return null;
+        for (let r = i+1; r < 3; r++) {
+          const f = M[r][i] / M[i][i];
+          for (let c = i; c < 3; c++) M[r][c] -= f * M[i][c];
+          V[r] -= f * V[i];
+        }
+      }
+      const coef = [0,0,0];
+      for (let i = 2; i >= 0; i--) {
+        coef[i] = V[i];
+        for (let j = i+1; j < 3; j++) coef[i] -= M[i][j] * coef[j];
+        coef[i] /= M[i][i];
+      }
+      return coef; // [c, b, a]
+    }
+
+    function calcPunto(bono, priceCurrency) {
+      const s = AppState.getState();
+      const meta = s.BOND_META[bono] || {};
+      const h = { vn: 100, currency: priceCurrency };
+      const precio = Finance.effectivePrice(bono, priceCurrency, h, meta, s.PRICES);
+      if (!precio || precio.price <= 0) return null;
+      const today = new Date(); today.setHours(0,0,0,0);
+      const flujos = s.DATA.filter(r => r.Bono === bono && r.Estado === 'Pendiente');
+      if (!flujos.length) return null;
+      const vtoFecha = new Date(flujos.at(-1).Fecha_Pago + 'T00:00:00');
+      const plazo = Math.max(0.01, (vtoFecha - today) / (365.25 * 86400000));
+      const flujosBase = flujos.map(r => ({ Fecha_Pago: r.Fecha_Pago, flujo_esc: r.Flujo_Total_USD }));
+      const tir = Finance.calcIRR(-precio.price, flujosBase, today);
+      if (tir === null || !Number.isFinite(tir) || tir < -0.8 || tir > 15) return null;
+      return { bono, plazo, tir, precio: precio.price, source: precio.source };
+    }
+
+    function calcAllCurvas() {
+      const result = {};
+      Object.entries(CURVAS).forEach(([key, cfg]) => {
+        result[key] = cfg.bonos.map(b => calcPunto(b, cfg.priceCurrency)).filter(Boolean).sort((a,b) => a.plazo - b.plazo);
+      });
+      return result;
+    }
+
+    // ── Historial ──
+    function loadHist() { try { return JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); } catch { return []; } }
+
+    function saveSnapshot() {
+      const curvas = calcAllCurvas();
+      const totalPts = Object.values(curvas).reduce((a, arr) => a + arr.length, 0);
+      if (totalPts === 0) return null;
+      const today = new Date().toISOString().slice(0,10);
+      const hist = loadHist();
+      const idx = hist.findIndex(s => s.date === today);
+      const snap = { date: today, curvas };
+      if (idx >= 0) hist[idx] = snap; else hist.push(snap);
+      hist.sort((a,b) => a.date.localeCompare(b.date));
+      if (hist.length > MAX_SNAPSHOTS) hist.splice(0, hist.length - MAX_SNAPSHOTS);
+      try { localStorage.setItem(HIST_KEY, JSON.stringify(hist)); }
+      catch { hist.splice(0, 10); try { localStorage.setItem(HIST_KEY, JSON.stringify(hist)); } catch {} }
+      return today;
+    }
+
+    // ── Chart.js plugin para labels de puntos ──
+    const labelPlugin = {
+      id: 'pointLabels',
+      afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        chart.data.datasets.forEach((ds, di) => {
+          if (!ds.showLabels) return;
+          const meta = chart.getDatasetMeta(di);
+          meta.data.forEach((pt, i) => {
+            const raw = ds.data[i];
+            if (!raw?.label) return;
+            ctx.save();
+            ctx.font = `500 10px 'JetBrains Mono', monospace`;
+            ctx.fillStyle = ds.labelColor || '#e6e9ef';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            // Offset pequeño para que el texto no tape el punto
+            ctx.fillText(raw.label, pt.x + 8, pt.y - 6);
+            ctx.restore();
+          });
+        });
+      }
+    };
+
+    let charts = {};
+
+    function mkChart(id, color) {
+      const ctx = document.getElementById(id)?.getContext('2d');
+      if (!ctx) return null;
+      return new Chart(ctx, {
+        type: 'scatter',
+        plugins: [labelPlugin],
+        data: {
+          datasets: [
+            // 0: puntos hoy con labels
+            {
+              label: 'Hoy', data: [], showLabels: true,
+              backgroundColor: color, borderColor: color, labelColor: '#e6e9ef',
+              pointRadius: 5, pointHoverRadius: 8, pointStyle: 'circle',
+              showLine: false,
+            },
+            // 1: regresión cuadrática hoy (línea punteada)
+            {
+              label: 'Regresión', data: [],
+              backgroundColor: 'transparent', borderColor: color,
+              borderWidth: 1.5, borderDash: [5, 4],
+              pointRadius: 0, showLine: true, tension: 0.4, fill: false,
+            },
+            // 2: puntos comparativa
+            {
+              label: 'Hist', data: [], showLabels: false,
+              backgroundColor: 'rgba(255,255,255,0.18)', borderColor: 'rgba(255,255,255,0.35)',
+              pointRadius: 4, pointHoverRadius: 6,
+              showLine: false,
+            },
+            // 3: regresión comparativa
+            {
+              label: 'Hist reg', data: [],
+              backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.3)',
+              borderWidth: 1, borderDash: [3, 5],
+              pointRadius: 0, showLine: true, tension: 0.4, fill: false,
+            },
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'nearest', intersect: false },
+          layout: { padding: { top: 20, right: 60, bottom: 10, left: 10 } },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              filter: item => item.datasetIndex === 0 || item.datasetIndex === 2,
+              backgroundColor: '#141821', borderColor: '#2f3747', borderWidth: 1, padding: 12,
+              callbacks: {
+                title: () => '',
+                label: ctx => {
+                  const d = ctx.raw;
+                  if (!d?.bono) return '';
+                  return [`${d.label || d.bono}`, `Plazo: ${d.x.toFixed(2)}a`, `TIR: ${(d.y*100).toFixed(2)}%`, `Precio: ${d.precio?.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}) ?? '—'}`];
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              type: 'linear', min: 0,
+              title: { display: true, text: 'DUR', color: '#5a6478', font: { family: "'JetBrains Mono',monospace", size: 10 } },
+              grid: { color: '#161b25' },
+              ticks: { color: '#5a6478', font: { family: "'JetBrains Mono',monospace", size: 10 }, callback: v => v + 'y' }
+            },
+            y: {
+              title: { display: true, text: 'YTM', color: '#5a6478', font: { family: "'JetBrains Mono',monospace", size: 10 } },
+              grid: { color: '#161b25' },
+              ticks: { color: '#5a6478', font: { family: "'JetBrains Mono',monospace", size: 10 }, callback: v => (v*100).toFixed(1)+'%' }
+            }
+          }
+        }
+      });
+    }
+
+    // Genera la curva de regresión como array de puntos {x,y}
+    function buildRegCurve(pts) {
+      if (!pts.length) return [];
+      const coef = quadReg(pts.map(p => ({x: p.plazo, y: p.tir})));
+      if (!coef) return pts.map(p => ({x: p.plazo, y: p.tir})); // fallback: conectar puntos
+      const [c, b, a] = coef;
+      const xMin = Math.max(0, Math.min(...pts.map(p=>p.plazo)) - 0.1);
+      const xMax = Math.max(...pts.map(p=>p.plazo)) + 0.2;
+      const steps = 60;
+      return Array.from({length: steps+1}, (_, i) => {
+        const x = xMin + (xMax - xMin) * i / steps;
+        return { x, y: a*x*x + b*x + c };
+      });
+    }
+
+    function updateCharts(curvasHoy, curvasComp) {
+      Object.entries(CURVAS).forEach(([key, cfg]) => {
+        const ch = charts[key];
+        if (!ch) return;
+
+        const ptHoy = (curvasHoy[key] || []).map(p => ({
+          x: p.plazo, y: p.tir, bono: p.bono,
+          label: cfg.labelMap?.[p.bono] || p.bono.split('/')[0].trim().replace(' ',''),
+          precio: p.precio, source: p.source,
+        }));
+        const regHoy = buildRegCurve(curvasHoy[key] || []);
+
+        const ptComp = (curvasComp?.[key] || []).map(p => ({
+          x: p.plazo, y: p.tir, bono: p.bono,
+          label: cfg.labelMap?.[p.bono] || p.bono.split('/')[0].trim().replace(' ',''),
+          precio: p.precio,
+        }));
+        const regComp = buildRegCurve(curvasComp?.[key] || []);
+
+        ch.data.datasets[0].data = ptHoy;
+        ch.data.datasets[1].data = regHoy;
+        ch.data.datasets[2].data = ptComp;
+        ch.data.datasets[3].data = regComp;
+        ch.update('none');
+
+        // Actualizar el label de regresión
+        const metaEl = document.getElementById('curvaReg' + key.charAt(0).toUpperCase() + key.slice(1));
+        if (metaEl && ptHoy.length) {
+          metaEl.textContent = `CURVA: REGRESIÓN CUADRÁTICA · ${ptHoy.length} PUNTOS`;
+        }
+      });
+    }
+
+    function renderHistList() {
+      const hist = loadHist();
+      const el = document.getElementById('curvaHistList');
+      if (!el) return;
+      el.innerHTML = '<option value="">— Elegir fecha comparativa —</option>' +
+        [...hist].reverse().map(s => {
+          const pts = Object.values(s.curvas).reduce((a, arr) => a + arr.length, 0);
+          return `<option value="${s.date}">${s.date} · ${pts} pts</option>`;
+        }).join('');
+      const badge = document.getElementById('curvaHistBadge');
+      if (badge) badge.textContent = hist.length > 0 ? `${hist.length} días guardados` : '';
+    }
+
+    function renderStats(curvasHoy) {
+      const el = document.getElementById('curvaStats');
+      if (!el) return;
+      const parts = [];
+      Object.entries(CURVAS).forEach(([key, cfg]) => {
+        const pts = curvasHoy[key] || [];
+        if (!pts.length) { parts.push(`<span style="color:${cfg.color}">${cfg.label}</span>: sin precio`); return; }
+        const tirs = pts.map(p => p.tir * 100);
+        parts.push(`<span style="color:${cfg.color};font-weight:600">${cfg.label}</span>: ${pts.length} pts · ${Math.min(...tirs).toFixed(2)}%–${Math.max(...tirs).toFixed(2)}% TIR`);
+      });
+      el.innerHTML = parts.join(' &nbsp;&nbsp;|&nbsp;&nbsp; ') || 'Sin precios de mercado. Actualizá precios para ver las curvas.';
+    }
+
+    function refresh(compDate) {
+      const curvasHoy = calcAllCurvas();
+      let curvasComp = null;
+      if (compDate) {
+        const snap = loadHist().find(s => s.date === compDate);
+        if (snap) curvasComp = snap.curvas;
+      }
+      updateCharts(curvasHoy, curvasComp);
+      renderStats(curvasHoy);
+      renderHistList();
+    }
+
+    function init() {
+      charts.usd  = mkChart('chartCurvaUSD',  '#5aa4e8');
+      charts.fija = mkChart('chartCurvaFija', '#f5b942');
+      charts.cer  = mkChart('chartCurvaCER',  '#b88ee8');
+
+      // Nav tabs
+      document.querySelectorAll('.app-nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.app-nav-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
+          btn.classList.add('active');
+          document.getElementById(btn.dataset.page)?.classList.add('active');
+          // Al entrar a curvas: refresh + resize de charts
+          if (btn.dataset.page === 'pageCurvas') {
+            setTimeout(() => { Object.values(charts).forEach(c => c?.resize()); refresh(document.getElementById('curvaHistList')?.value || null); }, 50);
+          }
+        });
+      });
+
+      document.getElementById('curvaHistList')?.addEventListener('change', e => {
+        const d = e.target.value || null;
+        const lbl = document.getElementById('curvaCompLabel');
+        if (lbl) lbl.textContent = d ? `vs ${d}` : '';
+        refresh(d);
+      });
+
+      document.getElementById('btnCurvaSnapshot')?.addEventListener('click', () => {
+        const d = saveSnapshot();
+        if (d) { renderHistList(); alert(`Snapshot guardado: ${d}`); }
+        else alert('Sin precios cargados. Actualizá los precios primero.');
+      });
+
+      document.getElementById('btnCurvaClearHist')?.addEventListener('click', () => {
+        if (!confirm('¿Borrar todo el historial de curvas?')) return;
+        localStorage.removeItem(HIST_KEY);
+        refresh();
+      });
+    }
+
+    function onPricesUpdated() {
+      saveSnapshot();
+      // Solo actualizar charts si la página de curvas está visible
+      if (document.getElementById('pageCurvas')?.classList.contains('active')) {
+        refresh(document.getElementById('curvaHistList')?.value || null);
+      }
+    }
+
+    return { init, refresh, onPricesUpdated, saveSnapshot };
+  })();
 
     // Grupos de bonos por curva
     const CURVAS = {
@@ -2748,45 +3084,6 @@
       const badge = document.getElementById('curvaHistBadge');
       if (badge) badge.textContent = hist.length > 0 ? `${hist.length} días guardados` : '';
     }
-
-    function init() {
-      createCharts();
-
-      // Listener del selector de comparativa
-      document.getElementById('curvaHistList')?.addEventListener('change', e => {
-        const compDate = e.target.value || null;
-        const compLabel = document.getElementById('curvaCompLabel');
-        if (compLabel) compLabel.textContent = compDate ? `vs ${compDate}` : '';
-        refresh(compDate);
-      });
-
-      // Botón snapshot manual
-      document.getElementById('btnCurvaSnapshot')?.addEventListener('click', () => {
-        const d = saveSnapshot();
-        if (d) { alert(`Snapshot guardado: ${d}`); refresh(); }
-        else alert('Sin precios cargados para guardar snapshot.');
-      });
-
-      // Botón borrar historial
-      document.getElementById('btnCurvaClearHist')?.addEventListener('click', () => {
-        if (!confirm('¿Borrar todo el historial de curvas? No se puede deshacer.')) return;
-        localStorage.removeItem(HIST_KEY);
-        refresh();
-        alert('Historial borrado.');
-      });
-
-      refresh();
-    }
-
-    // Exponer para que PricesAPI lo llame al actualizar precios
-    function onPricesUpdated() {
-      saveSnapshot();
-      const selDate = document.getElementById('curvaHistList')?.value || null;
-      refresh(selDate);
-    }
-
-    return { init, refresh, onPricesUpdated, saveSnapshot };
-  })();
 
   // ── Arrancar ──
   if (document.readyState === 'loading') {
