@@ -100,13 +100,20 @@
       // Costos de operación
       COSTS: { comision: 0.5, derechos: 0.045, iva: 21, inflacion: 35 },
 
-      // Escenarios (separados del estado real para no contaminar datos)
+      // Escenarios (separados del estado real)
       SCENARIO: {
         active: false,
-        tasaDescuento: 0,   // % adicional a aplicar al descontar flujos (+/-)
-        inflacionDelta: 0,  // % adicional sobre COSTS.inflacion para CER
-        precioDelta: 0,     // % de cambio de precios (sube/baja todos uniformemente)
+        tasaDescuento: 0,
+        inflacionDelta: 0,
+        precioDelta: 0,
+        horizonteMeses: 0,          // 0 = sin límite; 1/3/6/12/24/36 = filtrar flujos
+        inflacionMensual: [0,0,0,0,0,0,0,0,0,0,0,0], // 12 valores mensuales %
+        usarInflMensual: false,     // true = usar tabla mensual en vez de anual
       },
+
+      // Escenarios guardados
+      SAVED_SCENARIOS: [],
+      ACTIVE_SCENARIO_ID: null,
 
       // Historial de versiones de cartera
       PF_VERSIONS: [],
@@ -400,10 +407,14 @@
         s.PRICES     = obj.prices || {};
         s.PRICES_FETCHED_AT = obj.pricesFetchedAt || null;
         Object.assign(s.COSTS, obj.costs || {});
-        // Cargar versiones
-        try {
-          s.PF_VERSIONS = JSON.parse(localStorage.getItem(VERSIONS_KEY) || '[]');
-        } catch { s.PF_VERSIONS = []; }
+        s.SAVED_SCENARIOS = obj.savedScenarios || [];
+        s.ACTIVE_SCENARIO_ID = obj.activeScenarioId || null;
+        // Restaurar escenario activo si había uno
+        if (s.ACTIVE_SCENARIO_ID) {
+          const sc = s.SAVED_SCENARIOS.find(sc => sc.id === s.ACTIVE_SCENARIO_ID);
+          if (sc) Object.assign(s.SCENARIO, sc.data, { active: true });
+        }
+        try { s.PF_VERSIONS = JSON.parse(localStorage.getItem(VERSIONS_KEY) || '[]'); } catch { s.PF_VERSIONS = []; }
         return true;
       } catch { return false; }
     }
@@ -412,11 +423,11 @@
       const s = AppState.getState();
       try {
         localStorage.setItem(KEY, JSON.stringify({
-          portfolios: s.PORTFOLIOS,
-          active: s.ACTIVE_PF,
-          prices: s.PRICES,
-          pricesFetchedAt: s.PRICES_FETCHED_AT,
+          portfolios: s.PORTFOLIOS, active: s.ACTIVE_PF,
+          prices: s.PRICES, pricesFetchedAt: s.PRICES_FETCHED_AT,
           costs: s.COSTS,
+          savedScenarios: s.SAVED_SCENARIOS,
+          activeScenarioId: s.ACTIVE_SCENARIO_ID,
         }));
       } catch (e) { console.warn('save error', e); }
     }
@@ -709,73 +720,251 @@
   })();
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // 8. SCENARIOS — sliders con recálculo en tiempo real
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 8. SCENARIOS — multi-escenario con CRUD, horizonte, inflación mensual
   // ─────────────────────────────────────────────────────────────────────────────
   const Scenarios = (() => {
+    // ── Factor CER con tabla mensual ──
+    // inflMensual: array de 12 % mensuales (ej: [3,2.5,2,2,2,2,2,2,2,2,2,2])
+    // Capitalizados mes a mes hasta la fecha del flujo
+    function factorCERMensual(fechaIso, inflMensual) {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const fechaPago = new Date(fechaIso + 'T00:00:00');
+      const diasTotal = Math.max(0, (fechaPago - today) / 86400000);
+      if (diasTotal === 0) return 1;
+      // Cuántos meses completos faltan (redondeado)
+      const mesesFaltantes = Math.min(12, Math.round(diasTotal / 30.44));
+      let factor = 1;
+      for (let i = 0; i < mesesFaltantes; i++) {
+        factor *= (1 + (inflMensual[i] || inflMensual[11] || 0) / 100);
+      }
+      // Meses más allá de los 12: usar el último valor mensual
+      if (mesesFaltantes < Math.round(diasTotal / 30.44)) {
+        const extra = Math.round(diasTotal / 30.44) - mesesFaltantes;
+        const tasaExtra = (inflMensual[11] || 0) / 100;
+        factor *= Math.pow(1 + tasaExtra, extra);
+      }
+      return factor;
+    }
+
+    // ── Sincronizar UI ↔ SCENARIO ──
+    function syncUItoState() {
+      const s = AppState.getState();
+      const sc = s.SCENARIO;
+      const el = id => document.getElementById(id);
+      const setVal = (id, v) => { const e = el(id); if (e) e.value = v; };
+      const setTxt = (id, t) => { const e = el(id); if (e) e.textContent = t; };
+
+      setVal('scenTasa',     sc.tasaDescuento);
+      setVal('scenInflacion', sc.inflacionDelta);
+      setVal('scenPrecio',   sc.precioDelta);
+      setVal('scenHorizonte', sc.horizonteMeses || 0);
+
+      setTxt('scenTasaVal',   (sc.tasaDescuento >= 0 ? '+' : '') + sc.tasaDescuento + '%');
+      setTxt('scenInflVal',   (sc.inflacionDelta >= 0 ? '+' : '') + sc.inflacionDelta + '%');
+      setTxt('scenPrecioVal', (sc.precioDelta >= 0 ? '+' : '') + sc.precioDelta + '%');
+      setTxt('scenHorizonteVal', sc.horizonteMeses ? sc.horizonteMeses + ' meses' : 'Sin límite');
+
+      // Tabla de inflación mensual
+      if (sc.inflacionMensual) {
+        sc.inflacionMensual.forEach((v, i) => {
+          const inp = el(`scenInfl_${i}`);
+          if (inp) inp.value = v || '';
+        });
+      }
+      // Toggle uso inflación mensual
+      const tog = el('scenUsarMensual');
+      if (tog) tog.checked = sc.usarInflMensual || false;
+      const tablaMensual = el('scenInflMensualTable');
+      if (tablaMensual) tablaMensual.style.display = sc.usarInflMensual ? '' : 'none';
+
+      const anyActive = sc.active;
+      el('scenActiveBadge')?.classList.toggle('visible', anyActive);
+    }
+
+    function readUItoState() {
+      const s = AppState.getState();
+      const sc = s.SCENARIO;
+      const num = id => parseFloat(document.getElementById(id)?.value) || 0;
+      sc.tasaDescuento  = num('scenTasa');
+      sc.inflacionDelta = num('scenInflacion');
+      sc.precioDelta    = num('scenPrecio');
+      sc.horizonteMeses = parseInt(document.getElementById('scenHorizonte')?.value) || 0;
+      sc.usarInflMensual = document.getElementById('scenUsarMensual')?.checked || false;
+      sc.inflacionMensual = Array.from({ length: 12 }, (_, i) => num(`scenInfl_${i}`));
+      sc.active = sc.tasaDescuento !== 0 || sc.inflacionDelta !== 0 || sc.precioDelta !== 0 || sc.horizonteMeses > 0 || sc.usarInflMensual;
+    }
+
+    // ── Render lista de escenarios guardados ──
+    function renderSavedList() {
+      const s = AppState.getState();
+      const el = document.getElementById('savedScenariosList');
+      if (!el) return;
+      if (!s.SAVED_SCENARIOS.length) {
+        el.innerHTML = '<div style="color:var(--text-faint);font-size:12px;padding:8px 0">Sin escenarios guardados.</div>';
+        return;
+      }
+      el.innerHTML = s.SAVED_SCENARIOS.map(sc => {
+        const isActive = sc.id === s.ACTIVE_SCENARIO_ID;
+        return `<div class="version-item" style="${isActive ? 'border-color:var(--accent);background:rgba(245,185,66,0.05)' : ''}">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:600;color:${isActive?'var(--accent)':'var(--text)'}">${escapeHtml(sc.name)}${isActive?' ✓':''}</div>
+            <div class="version-meta">${sc.summary}</div>
+          </div>
+          <div class="version-actions">
+            <button class="btn small" onclick="Scenarios_load(${sc.id})">${isActive?'Activo':'Cargar'}</button>
+            <button class="btn small danger" onclick="Scenarios_delete(${sc.id})">×</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function buildSummary(sc) {
+      const parts = [];
+      if (sc.tasaDescuento) parts.push(`tasa ${sc.tasaDescuento>0?'+':''}${sc.tasaDescuento}%`);
+      if (sc.inflacionDelta) parts.push(`infl +${sc.inflacionDelta}%`);
+      if (sc.precioDelta) parts.push(`precio ${sc.precioDelta>0?'+':''}${sc.precioDelta}%`);
+      if (sc.horizonteMeses) parts.push(`horizonte ${sc.horizonteMeses}m`);
+      if (sc.usarInflMensual) parts.push(`infl mensual`);
+      return parts.length ? parts.join(' · ') : 'Sin cambios';
+    }
+
     function init() {
-      const scenarioInputs = [
-        { id: 'scenTasa', key: 'tasaDescuento', display: 'scenTasaVal', suffix: '%' },
-        { id: 'scenInflacion', key: 'inflacionDelta', display: 'scenInflVal', suffix: '%' },
-        { id: 'scenPrecio', key: 'precioDelta', display: 'scenPrecioVal', suffix: '%' },
+      // Sliders principales
+      const sliders = [
+        { id: 'scenTasa',      key: 'tasaDescuento',  display: 'scenTasaVal',      suffix: '%' },
+        { id: 'scenInflacion', key: 'inflacionDelta',  display: 'scenInflVal',      suffix: '%' },
+        { id: 'scenPrecio',    key: 'precioDelta',     display: 'scenPrecioVal',    suffix: '%' },
+        { id: 'scenHorizonte', key: 'horizonteMeses',  display: 'scenHorizonteVal', suffix: ' meses', zeroLabel: 'Sin límite' },
       ];
-      scenarioInputs.forEach(({ id, key, display, suffix }) => {
-        const el = document.getElementById(id);
-        const valEl = document.getElementById(display);
-        if (!el) return;
-        el.addEventListener('input', () => {
-          const v = parseFloat(el.value) || 0;
+      sliders.forEach(({ id, key, display, suffix, zeroLabel }) => {
+        document.getElementById(id)?.addEventListener('input', e => {
+          const v = parseFloat(e.target.value) || 0;
           AppState.getState().SCENARIO[key] = v;
-          if (valEl) valEl.textContent = (v >= 0 ? '+' : '') + v + suffix;
-          const anyActive = Object.values(AppState.getState().SCENARIO).some(v => typeof v === 'number' && v !== 0);
-          AppState.getState().SCENARIO.active = anyActive;
-          document.getElementById('scenActiveBadge')?.classList.toggle('visible', anyActive);
+          const label = v === 0 && zeroLabel ? zeroLabel : (v >= 0 ? '+' : '') + v + suffix;
+          const del = document.getElementById(display);
+          if (del) del.textContent = label;
+          readUItoState();
+          Storage.save();
+          document.getElementById('scenActiveBadge')?.classList.toggle('visible', AppState.getState().SCENARIO.active);
           UI.render();
         });
       });
 
-      document.getElementById('btnResetScenario')?.addEventListener('click', () => {
-        ['scenTasa','scenInflacion','scenPrecio'].forEach(id => {
-          const el = document.getElementById(id);
-          if (el) { el.value = 0; el.dispatchEvent(new Event('input')); }
+      // Inputs de inflación mensual
+      for (let i = 0; i < 12; i++) {
+        document.getElementById(`scenInfl_${i}`)?.addEventListener('input', () => {
+          readUItoState(); Storage.save(); UI.render();
         });
+      }
+
+      // Toggle inflación mensual
+      document.getElementById('scenUsarMensual')?.addEventListener('change', e => {
+        AppState.getState().SCENARIO.usarInflMensual = e.target.checked;
+        const tablaMensual = document.getElementById('scenInflMensualTable');
+        if (tablaMensual) tablaMensual.style.display = e.target.checked ? '' : 'none';
+        readUItoState(); Storage.save(); UI.render();
       });
+
+      // Reset
+      document.getElementById('btnResetScenario')?.addEventListener('click', () => {
+        const s = AppState.getState();
+        s.SCENARIO = { active: false, tasaDescuento: 0, inflacionDelta: 0, precioDelta: 0,
+                       horizonteMeses: 0, inflacionMensual: new Array(12).fill(0), usarInflMensual: false };
+        s.ACTIVE_SCENARIO_ID = null;
+        syncUItoState(); Storage.save(); UI.render();
+        renderSavedList();
+      });
+
+      // Guardar escenario
+      document.getElementById('btnSaveScenario')?.addEventListener('click', () => {
+        readUItoState();
+        const s = AppState.getState();
+        const name = prompt('Nombre del escenario:', `Escenario ${s.SAVED_SCENARIOS.length + 1}`);
+        if (!name) return;
+        const id = Date.now();
+        const sc = {
+          id, name,
+          data: JSON.parse(JSON.stringify(s.SCENARIO)),
+          summary: buildSummary(s.SCENARIO),
+          ts: new Date().toISOString(),
+        };
+        s.SAVED_SCENARIOS.unshift(sc);
+        s.ACTIVE_SCENARIO_ID = id;
+        Storage.save(); renderSavedList();
+      });
+
+      // Exponer funciones de carga y borrado globalmente
+      window.Scenarios_load = id => {
+        const s = AppState.getState();
+        const sc = s.SAVED_SCENARIOS.find(sc => sc.id === id);
+        if (!sc) return;
+        Object.assign(s.SCENARIO, sc.data, { active: true });
+        s.ACTIVE_SCENARIO_ID = id;
+        syncUItoState(); Storage.save(); UI.render(); renderSavedList();
+      };
+      window.Scenarios_delete = id => {
+        if (!confirm('¿Eliminar este escenario?')) return;
+        const s = AppState.getState();
+        s.SAVED_SCENARIOS = s.SAVED_SCENARIOS.filter(sc => sc.id !== id);
+        if (s.ACTIVE_SCENARIO_ID === id) {
+          s.ACTIVE_SCENARIO_ID = null;
+          s.SCENARIO = { active: false, tasaDescuento: 0, inflacionDelta: 0, precioDelta: 0,
+                         horizonteMeses: 0, inflacionMensual: new Array(12).fill(0), usarInflMensual: false };
+          syncUItoState(); UI.render();
+        }
+        Storage.save(); renderSavedList();
+      };
+
+      renderSavedList();
     }
 
-    /**
-     * Aplica el escenario a un flujo antes de procesarlo.
-     * Retorna el flujo ajustado (copia, no muta el original).
-     */
+    // ── Aplica escenario a fila ya escalada ──
     function applyToRow(r) {
       const sc = AppState.getState().SCENARIO;
       if (!sc.active) return r;
-      const meta = AppState.getState().BOND_META[r.Bono] || {};
+      const s = AppState.getState();
+      const meta = s.BOND_META[r.Bono] || {};
       const esCER = meta.tipo === 'BONCER' || meta.tipo === 'BONCER cero';
 
-      // Factor de inflación de escenario (delta sobre la inflación base)
-      const inflExtra = esCER ? Finance.factorInflacion(r.Fecha_Pago, sc.inflacionDelta) : 1;
+      // Filtro de horizonte
+      if (sc.horizonteMeses > 0) {
+        const today = new Date(); today.setHours(0,0,0,0);
+        const limFecha = new Date(today); limFecha.setMonth(limFecha.getMonth() + sc.horizonteMeses);
+        if (new Date(r.Fecha_Pago + 'T00:00:00') > limFecha) return null; // excluir
+      }
 
-      // Factor de descuento adicional: reduce el valor presente de flujos futuros
+      // Factor inflación CER
+      let inflFactor = 1;
+      if (esCER) {
+        if (sc.usarInflMensual && sc.inflacionMensual) {
+          inflFactor = factorCERMensual(r.Fecha_Pago, sc.inflacionMensual);
+        } else {
+          inflFactor = Finance.factorInflacion(r.Fecha_Pago, sc.inflacionDelta);
+        }
+      }
+
+      // Factor de descuento adicional
       const today = new Date(); today.setHours(0,0,0,0);
       const dias = Math.max(0, (new Date(r.Fecha_Pago + 'T00:00:00') - today) / 86400000);
       const factorDesc = sc.tasaDescuento !== 0 ? 1 / Math.pow(1 + sc.tasaDescuento / 100, dias / 365) : 1;
 
       return {
         ...r,
-        interes_calc:  r.interes_calc  * inflExtra * factorDesc,
-        amort_calc:    r.amort_calc    * inflExtra * factorDesc,
-        flujo_calc:    r.flujo_calc    * inflExtra * factorDesc,
+        interes_calc: r.interes_calc * inflFactor * factorDesc,
+        amort_calc:   r.amort_calc   * inflFactor * factorDesc,
+        flujo_calc:   r.flujo_calc   * inflFactor * factorDesc,
         _scenario: true,
       };
     }
 
-    /** Precio ajustado por escenario */
     function adjustedPrice(price) {
       const sc = AppState.getState().SCENARIO;
       if (!sc.active || sc.precioDelta === 0) return price;
       return { ...price, price: price.price * (1 + sc.precioDelta / 100) };
     }
 
-    return { init, applyToRow, adjustedPrice };
+    return { init, applyToRow, adjustedPrice, syncUItoState, renderSavedList, factorCERMensual };
   })();
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -1038,7 +1227,9 @@
         flujo_calc:   r.Flujo_Total_USD * factor * fInfla,
         factor,
       };
-      return s.SCENARIO.active ? Scenarios.applyToRow(scaled) : scaled;
+      if (!s.SCENARIO.active) return scaled;
+      const adjusted = Scenarios.applyToRow(scaled);
+      return adjusted; // puede ser null si fuera del horizonte
     }
 
     function getFiltered() {
@@ -1058,8 +1249,8 @@
         return true;
       }).map(scaleRow);
 
-      if (s.VIEW_MODE === 'portfolio') rows = rows.filter(r => r.vn > 0);
-      // Filtro de moneda timeline (aplica solo al cronograma, no a la tabla)
+      if (VIEW_MODE === 'portfolio') rows = rows.filter(r => r && r.vn > 0);
+      else rows = rows.filter(r => r !== null);
       return rows;
     }
 
@@ -2157,8 +2348,10 @@
     const s = AppState.getState();
     const meta = s.BOND_META[bono] || {};
     const mn = meta.moneda_nativa || 'USD';
-    const esCER = meta.tipo === 'BONCER' || meta.tipo === 'BONCER cero';
+    const esCER   = meta.tipo === 'BONCER' || meta.tipo === 'BONCER cero';
     const esLecap = meta.tipo === 'LECAP' || meta.tipo === 'BONCAP';
+    const esDual  = meta.tipo === 'DUAL';
+    const esTamar = meta.tipo === 'TAMAR';
     const h = normalizeHolding(currentPF()?.holdings[bono]);
     const currency = mn === 'ARS' ? 'ARS' : (h.currency || 'USD');
     const vn = h.vn || 0;
@@ -2230,7 +2423,55 @@
             <thead><tr><th>Fecha</th><th style="text-align:right">Interés ${mn}</th><th style="text-align:right">Amort ${mn}</th><th style="text-align:right">Flujo ${mn}</th><th style="text-align:right">Acumulado</th></tr></thead>
             <tbody>${(() => { let ac=0; return flujosEscalados.sort((a,b)=>a.Fecha_Pago.localeCompare(b.Fecha_Pago)).map(r=>{ ac+=r.flujo_esc; return `<tr><td class="mono">${fmtFecha(r.Fecha_Pago)}</td><td class="num">${fmtMoney(r.interes_esc,mn,2)}</td><td class="num">${fmtMoney(r.amort_esc,mn,2)}</td><td class="num highlight">${fmtMoney(r.flujo_esc,mn,2)}</td><td class="num" style="color:var(--green)">${fmtMoney(ac,mn,2)}</td></tr>`; }).join(''); })()}</tbody>
           </table><div class="note">Flujos en <strong>${mn}</strong>.${esCER?` Proyectados con inflación ${s.COSTS.inflacion+(s.SCENARIO.active?s.SCENARIO.inflacionDelta:0)}%/año. Los pagos reales dependen del CER publicado por el BCRA.`:''}${tirAnual!=null?` TIR: ${(tirAnual*100).toFixed(2)}%.`:''}</div></div>
-        </div>`}`;
+        </div>
+
+        ${(esDual || esTamar) ? `
+        <details style="border:1px dashed var(--border);border-radius:8px;margin-top:16px;overflow:hidden">
+          <summary style="padding:12px 16px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-dim);user-select:none;list-style:none;display:flex;justify-content:space-between">
+            <span>📋 Nota del analista — modelo ${esDual?'DUAL':'TAMAR'}</span><span>▾</span>
+          </summary>
+          <div style="padding:16px;border-top:1px solid var(--border)">
+            <div style="background:rgba(232,112,102,0.08);border:1px solid rgba(232,112,102,0.25);border-radius:6px;padding:12px;margin-bottom:14px;font-size:12px;line-height:1.7;color:var(--text-dim)">
+              <strong style="color:var(--red)">⚠ Limitación del modelo</strong><br>
+              ${esDual
+                ? 'El DUAL paga el <strong>mayor</strong> entre la tasa fija y la TAMAR vigente en cada cupón. El modelo usa <strong>solo la tasa fija como piso</strong> — la componente TAMAR no está proyectada. Si TAMAR sube → cobrás más. Si baja → cobrás exactamente lo proyectado. La TIR mostrada es el piso real.'
+                : 'El TAMAR paga tasa variable = TAMAR + spread fijo. El modelo usa la tasa actual como proxy constante. Si la TAMAR cambia significativamente, los flujos reales diferirán.'}
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+              <div>
+                <label class="cost-item-label">TAMAR estimada al vto %</label>
+                <input type="number" class="modal-input" id="dualNota_tamarEst" step="0.1" placeholder="ej: 28.00" style="margin-top:4px">
+              </div>
+              <div>
+                <label class="cost-item-label">Prob. TAMAR > tasa fija %</label>
+                <input type="number" class="modal-input" id="dualNota_prob" min="0" max="100" step="1" placeholder="ej: 60" style="margin-top:4px">
+              </div>
+              <div>
+                <label class="cost-item-label">TIR ajustada estimada %</label>
+                <input type="number" class="modal-input" id="dualNota_tirAdj" step="0.01" placeholder="ej: 35.00" style="margin-top:4px">
+              </div>
+              <div>
+                <label class="cost-item-label">Horizonte de análisis</label>
+                <select class="modal-input" id="dualNota_horizonte" style="margin-top:4px">
+                  <option value="">— Seleccionar —</option>
+                  <option value="1">1 mes</option><option value="3">3 meses</option>
+                  <option value="6">6 meses</option><option value="12">12 meses</option>
+                  <option value="vto">Hasta vencimiento</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="cost-item-label">Notas libres del analista</label>
+              <textarea class="modal-input" id="dualNota_texto" rows="4" placeholder="Contexto macro, hipótesis de tasa, comparación con alternativas, riesgo de reinversión..." style="margin-top:4px;font-size:12px;resize:vertical"></textarea>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+              <button class="btn small" onclick="(function(){const bonoKey='${escapeHtml(bono).replace(/'/g,'\\x27')}';const d={tamarEst:document.getElementById('dualNota_tamarEst')?.value,prob:document.getElementById('dualNota_prob')?.value,tirAdj:document.getElementById('dualNota_tirAdj')?.value,horizonte:document.getElementById('dualNota_horizonte')?.value,texto:document.getElementById('dualNota_texto')?.value,ts:new Date().toISOString()};localStorage.setItem('analista_'+bonoKey,JSON.stringify(d));alert('Nota guardada.');})()">💾 Guardar</button>
+              <button class="btn small" onclick="(function(){const bonoKey='${escapeHtml(bono).replace(/'/g,'\\x27')}';const raw=localStorage.getItem('analista_'+bonoKey);if(!raw){alert('Sin nota guardada.');return;}const d=JSON.parse(raw);['tamarEst','prob','tirAdj','horizonte','texto'].forEach(k=>{const el=document.getElementById('dualNota_'+k);if(el&&d[k]!=null)el.value=d[k];});})()">📂 Cargar</button>
+            </div>
+          </div>
+        </details>
+        ` : ''}
+        `}`;  
 
     const content = document.getElementById('modalBondContent');
     if (content) content.innerHTML = html;

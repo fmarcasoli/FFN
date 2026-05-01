@@ -142,49 +142,88 @@
       <div style="display:flex;align-items:center;gap:12px">
         <div>
           <div class="chart-title">Simulador de escenarios</div>
-          <div class="chart-sub">Modificá supuestos y ves el impacto en tiempo real en KPIs y gráficos</div>
+          <div class="chart-sub">Guardá múltiples escenarios y activá cualquiera con un click</div>
         </div>
         <span class="scenario-active-badge" id="scenActiveBadge">ESCENARIO ACTIVO</span>
       </div>
     </summary>
     <div class="scenarios-body">
-      <div style="font-size:12px;color:var(--text-dim);margin-bottom:16px;line-height:1.6">
-        Los cambios de escenario <strong>no modifican tus datos reales</strong>. Son una capa de simulación sobre los flujos calculados.
-        Aparece un indicador <em>~</em> en la tabla cuando una fila está modificada por el escenario.
-      </div>
-      <div class="scenarios-grid">
-        <div class="scenario-item">
-          <label class="scenario-label">
-            Tasa de descuento adicional
-            <span class="scenario-value" id="scenTasaVal">+0%</span>
-          </label>
-          <input type="range" id="scenTasa" min="-30" max="30" step="0.5" value="0">
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-faint);font-family:'JetBrains Mono',monospace">
-            <span>-30%</span><span>0%</span><span>+30%</span>
-          </div>
+
+      <!-- Escenarios guardados -->
+      <div style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-dim)">Escenarios guardados</span>
+          <button class="btn small primary" id="btnSaveScenario">💾 Guardar actual</button>
         </div>
-        <div class="scenario-item">
-          <label class="scenario-label">
-            Inflación adicional (CER)
-            <span class="scenario-value" id="scenInflVal">+0%</span>
-          </label>
-          <input type="range" id="scenInflacion" min="-30" max="100" step="1" value="0">
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-faint);font-family:'JetBrains Mono',monospace">
-            <span>-30%</span><span>0%</span><span>+100%</span>
-          </div>
-        </div>
-        <div class="scenario-item">
-          <label class="scenario-label">
-            Cambio de precios de mercado
-            <span class="scenario-value" id="scenPrecioVal">+0%</span>
-          </label>
-          <input type="range" id="scenPrecio" min="-50" max="50" step="1" value="0">
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-faint);font-family:'JetBrains Mono',monospace">
-            <span>-50%</span><span>0%</span><span>+50%</span>
-          </div>
+        <div id="savedScenariosList">
+          <div style="color:var(--text-faint);font-size:12px;padding:8px 0">Sin escenarios guardados.</div>
         </div>
       </div>
-      <button class="btn" id="btnResetScenario">↺ Resetear escenario</button>
+
+      <div style="border-top:1px solid var(--border);padding-top:16px;margin-bottom:16px">
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:14px;line-height:1.6">
+          Los cambios de escenario <strong>no modifican datos reales</strong>. Son una capa de simulación. Las filas afectadas se marcan con <em>~</em> en la tabla.
+        </div>
+
+        <!-- Sliders principales -->
+        <div class="scenarios-grid">
+          <div class="scenario-item">
+            <label class="scenario-label">Tasa de descuento adicional<span class="scenario-value" id="scenTasaVal">+0%</span></label>
+            <input type="range" id="scenTasa" min="-30" max="30" step="0.5" value="0">
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-faint);font-family:'JetBrains Mono',monospace"><span>-30%</span><span>0%</span><span>+30%</span></div>
+          </div>
+          <div class="scenario-item">
+            <label class="scenario-label">Inflación adicional (CER anual)<span class="scenario-value" id="scenInflVal">+0%</span></label>
+            <input type="range" id="scenInflacion" min="-30" max="100" step="1" value="0">
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-faint);font-family:'JetBrains Mono',monospace"><span>-30%</span><span>0%</span><span>+100%</span></div>
+          </div>
+          <div class="scenario-item">
+            <label class="scenario-label">Cambio de precios de mercado<span class="scenario-value" id="scenPrecioVal">+0%</span></label>
+            <input type="range" id="scenPrecio" min="-50" max="50" step="1" value="0">
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-faint);font-family:'JetBrains Mono',monospace"><span>-50%</span><span>0%</span><span>+50%</span></div>
+          </div>
+          <div class="scenario-item">
+            <label class="scenario-label">Horizonte de análisis<span class="scenario-value" id="scenHorizonteVal">Sin límite</span></label>
+            <select id="scenHorizonte" class="modal-input" style="font-size:12px;padding:6px 8px">
+              <option value="0">Sin límite (todos los flujos)</option>
+              <option value="1">1 mes</option>
+              <option value="3">3 meses</option>
+              <option value="6">6 meses</option>
+              <option value="12">12 meses</option>
+              <option value="24">24 meses</option>
+              <option value="36">36 meses</option>
+              <option value="60">5 años</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Inflación mensual para CER -->
+        <div style="margin-top:16px">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:10px">
+            <input type="checkbox" id="scenUsarMensual" style="width:16px;height:16px;accent-color:var(--purple)">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--purple)">
+              Usar inflación mensual propia (12 meses) para CER
+            </span>
+          </label>
+          <div id="scenInflMensualTable" style="display:none;background:var(--bg);border:1px solid rgba(184,142,232,0.3);border-radius:8px;padding:12px">
+            <div style="font-size:11px;color:var(--text-dim);margin-bottom:10px;line-height:1.6">
+              Ingresá la inflación mensual estimada para cada mes. El mes 12 se usa como tasa estacionaria para flujos más allá del horizonte.
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px">
+              ${['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'].map((m,i)=>`
+              <div>
+                <label style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-faint);display:block;margin-bottom:2px">M${i+1} ${m} %</label>
+                <input type="number" id="scenInfl_${i}" class="cost-input" step="0.1" min="0" placeholder="3.0" style="width:100%">
+              </div>`).join('')}
+            </div>
+            <div style="margin-top:10px;font-size:10px;color:var(--text-faint);font-family:'JetBrains Mono',monospace">
+              Ej: Si estimás 3% por mes → TNA ≈ 42.6% · TEA ≈ 42.6% · CER proyectado capitalizado mes a mes.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn" id="btnResetScenario">↺ Resetear escenario activo</button>
     </div>
   </details>
 
